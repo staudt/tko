@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { heldControls, selectedSound } from '../ui/state';
+import { audChainPos, audPattern, editPattern, heldControls, queuedPattern, selectedSound } from '../ui/state';
 import { Digits } from './SevenSeg';
 import { Art } from './Art';
 import { startMatrix } from './Matrix';
@@ -14,9 +14,15 @@ export function Lcd() {
   const snd = selectedSound.value;
   const p = project.value;
   const isPlaying = playing.value;
+  const aud = audPattern.value;
+  const patShown = isPlaying && aud >= 0 ? aud : editPattern.value;
+  const queued = queuedPattern.value;
+  const chain = p.chain;
+  const idx = isPlaying && aud >= 0 ? audChainPos.value % chain.length : Math.max(0, chain.indexOf(patShown));
+  const next = queued ?? (chain.length > 1 ? chain[(idx + 1) % chain.length]! : null);
   const rec = heldControls.value.has('btn:rec');
   return (
-    <div class="lcd" data-testid="lcd" data-snd={snd + 1} aria-label={`SND ${pad2(snd + 1)}`}>
+    <div class="lcd" data-testid="lcd" data-snd={snd + 1} data-pat={patShown + 1} aria-label={`SND ${pad2(snd + 1)}`}>
       <div class="lcd-top">
         <span class="lcd-grp">
           <span class="lcd-lbl">SND</span>
@@ -24,7 +30,12 @@ export function Lcd() {
         </span>
         <span class="lcd-grp">
           <span class="lcd-lbl">PAT</span>
-          <Digits n={(p.chain[0] ?? 0) + 1} width={2} label="PAT 01" />
+          <Digits n={patShown + 1} width={2} label={`PAT ${pad2(patShown + 1)}`} />
+          {next !== null && (
+            <span class={`lcd-chain${queued !== null ? ' q' : ''}`} data-testid="lcd-chain">
+              →{pad2(next + 1)}
+            </span>
+          )}
         </span>
         <span class="lcd-icons">
           <svg viewBox="0 0 14 14" class={isPlaying ? 'seg on' : 'seg'} aria-label="play">

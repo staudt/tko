@@ -3,7 +3,7 @@
 import { audibleStep, playing } from '../engine/host';
 import { project } from '../store/project';
 import { getSample } from '../store/samples';
-import { selectedSound } from './../ui/state';
+import { editPattern, selectedSound, writeMode } from './../ui/state';
 import { currentMessage, extendMessage } from './message';
 import { textColumns } from './font';
 
@@ -51,7 +51,11 @@ function compose(dots: Uint8Array, now: number): string {
   const i = selectedSound.peek();
   const s = project.peek().sounds[i];
   const msg = currentMessage(now);
-  const step = playing.peek() ? (audibleStep()?.step ?? -1) : -1;
+  const write = writeMode.peek();
+  const pat = editPattern.peek();
+  const aud = playing.peek() ? audibleStep() : null;
+  const step = aud && (!write || aud.pattern === pat) ? aud.step : -1;
+  const lane = write ? project.peek().patterns[pat]?.lanes[i] : undefined;
   // step row
   for (let st = 0; st < 16; st++) {
     const x0 = st * 6;
@@ -73,6 +77,18 @@ function compose(dots: Uint8Array, now: number): string {
       for (let r = 0; r < 7; r++) if (m & (1 << r)) dots[(r + 1) * COLS + c] = 1;
     }
     return `m${msg.version}:${off}:${step}`;
+  }
+  if (write) {
+    // the selected lane: filled step = big 4x4 block, empty = one dot
+    let sg = `e${step}:`;
+    for (let st = 0; st < 16; st++) {
+      const x0 = st * 6 + 1;
+      const filled = !!lane?.[st];
+      sg += filled ? '1' : '0';
+      if (filled) for (let r = 2; r < 6; r++) for (let k = 0; k < 4; k++) dots[r * COLS + x0 + k] = 1;
+      else dots[3 * COLS + x0 + 1] = dots[3 * COLS + x0 + 2] = dots[4 * COLS + x0 + 1] = dots[4 * COLS + x0 + 2] = 1;
+    }
+    return sg;
   }
   const peaks = peaksFor(s?.sampleId ?? null);
   if (peaks && s) {

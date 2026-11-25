@@ -8,11 +8,19 @@ import './ui/ui.css';
 import { App } from './app/App';
 import { applyFactoryMeta } from './store/factoryMeta';
 import { startAudio } from './engine/host';
+import { project, replaceProject } from './store/project';
+import { loadCurrentProject, startPersistence } from './store/persist';
 
 // Unlock audio on the first touch anywhere (idempotent; also resumes after interruptions).
 window.addEventListener('pointerdown', () => void startAudio().catch(() => {}), { capture: true });
 
-void applyFactoryMeta().catch(() => {});
+// Restore the last session (autosaved to IndexedDB), then keep saving every change.
+void (async () => {
+  const saved = await loadCurrentProject();
+  if (saved) replaceProject(saved);
+  await applyFactoryMeta().catch(() => {});
+  startPersistence(() => project.peek(), (cb) => project.subscribe(() => cb()));
+})();
 render(<App />, document.getElementById('app')!);
 
 // Offline support (production builds only).

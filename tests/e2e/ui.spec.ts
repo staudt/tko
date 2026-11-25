@@ -56,7 +56,7 @@ test.describe('touch', () => {
     await page.waitForTimeout(400);
     await t.up(1);
     expect((await commands(page)).filter((c) => c.type === 'play').length).toBe(before);
-    await expect(page.locator('.sheet-wrap')).not.toHaveClass(/open/);
+    await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
   });
 
   test('hold a pad, drag knob A with another finger', async ({ page }) => {
@@ -99,7 +99,7 @@ test.describe('touch', () => {
     await expect(page.getByTestId('card-12')).toBeVisible();
     await page.getByTestId('card-12').tap();
     await expect(page.getByTestId('lcd')).toHaveAttribute('data-snd', '12');
-    await expect(page.locator('.sheet-wrap')).not.toHaveClass(/open/);
+    await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
   });
 
   test('pointercancel releases everything and panics', async ({ page }) => {

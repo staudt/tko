@@ -2,7 +2,9 @@
 import { apply, project, updateSound } from '../store/project';
 import { fxKnob } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
-import { fxPad, fxXY, knobMode, selectedSound } from './state';
+import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, selectedSound } from './state';
+import { getStep, setLock, setStep } from '../store/edit';
+import { knobToPitch, knobToTone, pitchToKnob, toneToKnob } from './stepHelpers';
 import { markUsed, setBpm, setSwing } from './controls';
 
 export type KnobSpec = { label: string; text: string; value: number; def: number; disabled?: boolean; onChange: (v: number, first: boolean) => void };
@@ -39,6 +41,45 @@ export function knobSpecs(): KnobSpecs {
       title: `${def.label} ${def.sub}`.toUpperCase(),
       a: { label: `FX ${def.x}`, text: `${def.x} ${Math.round(x * 100)}`.toUpperCase(), value: x, def: d[0], onChange: (v, f) => (f && markUsed(), send(v, fxXY.peek()[1])) },
       b: { label: `FX ${def.y}`, text: `${def.y} ${Math.round(y * 100)}`.toUpperCase(), value: y, def: d[1], onChange: (v, f) => (f && markUsed(), send(fxXY.peek()[0], v)) },
+    };
+  }
+  if (mode === 'lock' && heldStep.value !== null) {
+    const st = heldStep.value;
+    const pat = editPattern.value;
+    const cur = getStep(p, pat, i, st);
+    const snd = i;
+    const change = (which: 'A' | 'B', v: number, first: boolean, def: number, map: (v: number) => number) => {
+      if (first) markUsed();
+      const k = key(which, first, snd * 16 + st);
+      if (first && v === def) {
+        // double tap: remove that lock (never creates a step)
+        apply((q) => setLock(q, pat, snd, st, which, null));
+        return;
+      }
+      apply(
+        (q) => {
+          const base = getStep(q, pat, snd, st) ? q : setStep(q, pat, snd, st, { keys: 1 << (lastKey[snd] ?? 0) });
+          return setLock(base, pat, snd, st, which, map(v));
+        },
+        { merge: k },
+      );
+    };
+    return {
+      title: `STEP ${pad(st)}`,
+      a: {
+        label: 'Lock pitch',
+        text: cur?.lockA === undefined ? '—' : `LOCK PITCH ${signed(cur.lockA)}`,
+        value: cur?.lockA === undefined ? 0.5 : pitchToKnob(cur.lockA),
+        def: 0.5,
+        onChange: (v, f) => change('A', v, f, 0.5, knobToPitch),
+      },
+      b: {
+        label: 'Lock tone',
+        text: cur?.lockB === undefined ? '—' : `LOCK TONE ${toneText(cur.lockB / 100)}`,
+        value: cur?.lockB === undefined ? 0.5 : toneToKnob(cur.lockB),
+        def: 0.5,
+        onChange: (v, f) => change('B', v, f, 0.5, knobToTone),
+      },
     };
   }
   if (mode === 'bpm') {
