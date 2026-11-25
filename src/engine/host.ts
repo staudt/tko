@@ -25,8 +25,11 @@ const ringPat = new Int32Array(RING);
 const ringChain = new Int32Array(RING);
 let ringW = 0;
 
-/** Latest meters: master peak and the sounds triggered recently (bit s), decayed by readers. */
-export const meters = { master: 0, active: 0, activeAt: new Float64Array(16) };
+/**
+ * Latest meters (read from rAF): master peak, when each sound last triggered (performance.now ms),
+ * the last key each sound played, and the punch-in FX currently on (-1 = none).
+ */
+export const meters = { master: 0, active: 0, activeAt: new Float64Array(16), lastKey: new Int8Array(16).fill(-1), fx: -1 };
 
 /** Test builds record every command sent (Playwright reads window.__tko.commands). */
 const testLog: EngineCommand[] | null = import.meta.env.MODE === 'test' ? [] : null;
@@ -56,7 +59,11 @@ function onEvent(ev: EngineEvent): void {
     meters.master = ev.master;
     meters.active = ev.active;
     const now = performance.now();
-    for (let s = 0; s < 16; s++) if (ev.active & (1 << s)) meters.activeAt[s] = now;
+    for (let s = 0; s < 16; s++) {
+      if (ev.active & (1 << s)) meters.activeAt[s] = now;
+      meters.lastKey[s] = ev.keys[s] ?? -1;
+    }
+    meters.fx = ev.fx;
   } else if (ev.type === 'resampled') {
     pendingResamples.get(ev.id)?.(ev.l);
     pendingResamples.delete(ev.id);

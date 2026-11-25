@@ -68,6 +68,9 @@ export type EngineCommand =
 export type EngineEvent =
   /** step -1 = stopped. `time` = context time when the step is heard at the engine output. */
   | { type: 'step'; step: number; pattern: number; chainPos: number; time: number }
-  /** ~30 Hz. `active` bit s = sound s triggered since the previous meters event. */
-  | { type: 'meters'; master: number; active: number }
+  /**
+   * ~30 Hz. `active` bit s = sound s triggered since the previous meters event; `keys[s]` = the last
+   * key sound s played (-1 = none yet); `fx` = the punch-in FX currently on (live or lane), -1 = none.
+   */
+  | { type: 'meters'; master: number; active: number; keys: number[]; fx: number }
   | { type: 'resampled'; id: string; l: Float32Array };

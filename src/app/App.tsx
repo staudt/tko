@@ -12,13 +12,17 @@ export function KnobRow() {
   const { title, a, b } = knobSpecs();
   return (
     <div class="knobs">
-      <Knob letter="A" testId="knob-a" label={a.label} value={a.value} def={a.def} disabled={a.disabled} onChange={a.onChange} />
+      <div class="knob-col">
+        <Knob letter="A" testId="knob-a" label={a.label} value={a.value} def={a.def} disabled={a.disabled} onChange={a.onChange} />
+        <div class={`knob-label${a.disabled ? ' dim' : ''}`} data-testid="knob-a-label">{a.text}</div>
+      </div>
       <div class="readout" data-testid="readout">
         <div class="ro-title">{title}</div>
-        <div class="ro-line">{a.text}</div>
-        <div class={`ro-line${b.disabled ? ' dim' : ''}`}>{b.text}</div>
       </div>
-      <Knob letter="B" testId="knob-b" label={b.label} value={b.value} def={b.def} disabled={b.disabled} onChange={b.onChange} />
+      <div class="knob-col">
+        <Knob letter="B" testId="knob-b" label={b.label} value={b.value} def={b.def} disabled={b.disabled} onChange={b.onChange} />
+        <div class={`knob-label${b.disabled ? ' dim' : ''}`} data-testid="knob-b-label">{b.text}</div>
+      </div>
     </div>
   );
 }

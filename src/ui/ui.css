@@ -61,8 +61,10 @@ svg { display: block; }
 .lcd-icons svg.on { opacity: 1; }
 .lcd-art { min-height: 0; display: grid; place-items: center; }
 .art { height: 100%; width: 100%; max-height: 100%; }
-.art .seg { fill: none; stroke: var(--lcd-ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.07; transition: opacity 0.06s; }
+.art .seg { fill: none; stroke: var(--lcd-ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.045; transition: opacity 0.05s; }
 .art .seg.on { opacity: 1; }
+.art.dim .seg.on { opacity: 0.22; }
+@media (prefers-reduced-motion: reduce) { .art .seg { transition: none; } }
 .lcd-strip { width: 100%; aspect-ratio: 96 / 12; display: block; }
 
 /* knobs */
@@ -79,8 +81,12 @@ svg { display: block; }
 .knob .capshine { fill: none; stroke: rgba(255, 255, 255, 0.09); stroke-width: 1; transform: translateY(-1px); }
 .knob .needle { stroke: var(--text); stroke-width: 2.4; stroke-linecap: round; }
 .knob .letter { fill: var(--muted); font: 700 11px var(--font-ui); text-anchor: middle; opacity: 0.0; }
-.readout { text-align: center; min-width: 0; display: grid; gap: 1px; }
-.ro-title { font: 500 10px var(--font-mono); color: var(--muted); letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.readout { text-align: center; min-width: 0; display: grid; gap: 4px; }
+.knob-col { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.knob-label { margin-top: calc(var(--knob) * -0.14); font: 600 12px/1.2 var(--font-mono); letter-spacing: 0.04em; color: var(--amber); white-space: nowrap; max-width: calc(var(--knob) + 24px); overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.knob-label.dim { color: var(--muted); opacity: 0.6; }
+.ro-hint { font: 500 10px/1.2 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.ro-title { font: 600 13px var(--font-mono); color: var(--text); letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ro-line { font: 500 15px var(--font-mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ro-line.dim { color: var(--muted); }
 
@@ -166,3 +172,7 @@ body:has(.ld) { overflow: auto; touch-action: auto; }
 .ld-cell { display: grid; gap: 4px; justify-items: center; }
 .ld-pad { width: 68px; height: 68px; }
 .ld .knob { width: 80px; height: 80px; }
+
+.ld-poses { display: grid; grid-template-columns: repeat(3, 340px); gap: 6px; }
+.ld-poses .lcd-art { height: 110px; width: 340px; }
+.ld-poses .lcd { height: auto; padding: 4px; }

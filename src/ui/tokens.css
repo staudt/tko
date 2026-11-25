@@ -19,5 +19,5 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --gutter: 10px;
   --gap: 6px;
-  --knob: clamp(72px, 11.5dvh, 96px);
+  --knob: clamp(64px, 10.5dvh, 90px);
 }

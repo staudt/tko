@@ -8,6 +8,8 @@ import './ui/ui.css';
 import { Lcd } from './lcd/Lcd';
 import { Knob } from './ui/Knob';
 import { FnButton } from './ui/Controls';
+import { Art, type ForcePose } from './lcd/Art';
+import { POSE_FRAMES, type CatName, type PoseName } from './lcd/art/poses';
 import { applyFactoryMeta } from './store/factoryMeta';
 
 const Cell = ({ label, children }: { label: string; children: preact.ComponentChildren }) => (
@@ -17,11 +19,33 @@ const Cell = ({ label, children }: { label: string; children: preact.ComponentCh
   </div>
 );
 
+const CATS: CatName[] = ['sleep', 'awake', 'ears'];
+const POSE_CELLS: { label: string; force: ForcePose }[] = (Object.keys(POSE_FRAMES) as PoseName[]).flatMap((pose) =>
+  Array.from({ length: POSE_FRAMES[pose] }, (_, frame) => ({
+    label: `${pose} ${frame}`,
+    force: { pose, frame, arg: pose === 'stir' ? 1 + frame * 2 : pose === 'throw' ? frame & 1 : frame & 1, cat: pose === 'lofi' || pose === 'gate' ? 'ears' : ((pose === 'sing' || pose === 'stir') ? CATS[(frame + 1) % 2 + 0]! : CATS[frame % 2]!), tail: frame % 2 === 1 } as ForcePose,
+  })),
+);
+
+function PoseGallery() {
+  return (
+    <div class="ld-poses">
+      {POSE_CELLS.map((c) => (
+        <div class="lcd" key={c.label}>
+          <div class="lcd-lbl">{c.label}</div>
+          <div class="lcd-art"><Art force={c.force} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LookDev() {
   return (
     <div class="ld">
       <h1>tko look-dev</h1>
       <Lcd />
+      <PoseGallery />
       <div class="ld-row">
         <Cell label="idle"><div class="pad ld-pad"><i class="dot" /><span class="num">1</span></div></Cell>
         <Cell label="pressed"><div class="pad on ld-pad"><i class="dot" /><span class="num">2</span></div></Cell>
@@ -45,4 +69,5 @@ function LookDev() {
 }
 
 void applyFactoryMeta().catch(() => {});
-render(<LookDev />, document.getElementById('app')!);
+const onlyPoses = new URLSearchParams(location.search).has('poses');
+render(onlyPoses ? <PoseGallery /> : <LookDev />, document.getElementById('app')!);

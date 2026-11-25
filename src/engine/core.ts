@@ -130,6 +130,7 @@ export class Engine {
 
   private masterPeak = 0;
   private active = 0;
+  private readonly meterKeys: number[] = new Array<number>(SOUNDS).fill(-1);
   private meterFrames = 0;
   private readonly meterEvery: number;
 
@@ -419,6 +420,7 @@ export class Engine {
     const d = st.data;
     if (!d) return;
     this.active |= 1 << snd;
+    this.meterKeys[snd] = key;
     st.toneTarget = lockB === NO_LOCK ? st.tone : lockB / 100;
     const n = d.length;
     let from: number;
@@ -624,8 +626,11 @@ export class Engine {
     this.meterFrames += n;
     if (this.meterFrames >= this.meterEvery) {
       this.meterFrames = 0;
-      if (this.playing || this.masterPeak > 1e-4 || this.active !== 0) {
-        this.emit({ type: 'meters', master: this.masterPeak, active: this.active });
+      if (this.playing || this.masterPeak > 1e-4 || this.active !== 0 || this.liveFxCount > 0) {
+        let fx = this.laneFx;
+        for (let f = 0; f < FX_COUNT; f++) if (this.liveFx[f]) fx = f;
+        // Throttled (~30 Hz): the only allocation is the structured clone done by postMessage.
+        this.emit({ type: 'meters', master: this.masterPeak, active: this.active, keys: this.meterKeys, fx });
         this.masterPeak = 0;
         this.active = 0;
       }
