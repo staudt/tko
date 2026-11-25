@@ -31,6 +31,8 @@ const FX_COUNT = FX_IDS.length;
 const EV_ON = 0;
 const EV_OFF = 1;
 const EV_FX = 2;
+const EV_CLICK = 3;
+const CLICK_S = 0.03;
 
 /** Tone -1..1 to a low-pass (t < 0) or high-pass (t > 0) cutoff in Hz. */
 function toneCutoff(t: number): number {
@@ -120,6 +122,15 @@ export class Engine {
   private readonly injDel = new Float32Array(MAX_BLOCK);
   private readonly limiter: Limiter;
   private masterGain = 0.8;
+  // Metronome: two pre-rendered clicks (accent / beat), played from clickStart within the block.
+  private metronome = false;
+  private readonly clickHi: Float32Array;
+  private readonly clickLo: Float32Array;
+  private click: Float32Array | null = null;
+  private clickPos = 0;
+  private clickStart = -1;
+  /** Block offset of the event being dispatched (set in process()). */
+  private dispatchOff = 0;
   private readonly smoothK: number;
 
   // Resample capture.
@@ -148,6 +159,15 @@ export class Engine {
       this.sounds.push(st);
     }
     for (let v = 0; v < VOICES; v++) this.voices.push(new SampleVoice(sampleRate));
+    const clickLen = Math.round(CLICK_S * sampleRate);
+    this.clickHi = new Float32Array(clickLen);
+    this.clickLo = new Float32Array(clickLen);
+    for (let i = 0; i < clickLen; i++) {
+      const t = i / sampleRate;
+      const env = Math.exp(-t / 0.006) * Math.min(1, i / 16);
+      this.clickHi[i] = Math.sin(2 * Math.PI * 1760 * t) * env * 0.45;
+      this.clickLo[i] = Math.sin(2 * Math.PI * 1320 * t) * env * 0.3;
+    }
   }
 
   /** Output latency added by the engine (limiter lookahead), in samples. */
@@ -197,6 +217,9 @@ export class Engine {
         }
         this.bpm = Math.min(300, Math.max(30, cmd.bpm));
         this.swing = Math.min(75, Math.max(50, cmd.swing));
+        break;
+      case 'metronome':
+        this.metronome = cmd.on;
         break;
       case 'volume':
         this.masterGain = Math.min(1, Math.max(0, cmd.gain));
@@ -397,6 +420,7 @@ export class Engine {
       const pat = this.chain[this.chainPos]!;
       const at = Math.max(blockStart, this.frameAt(s + this.swingDelay(s)));
       this.emit({ type: 'step', step: local, pattern: pat, chainPos: this.chainPos, time: this.timeOf(at) });
+      if (this.metronome && local % 4 === 0) this.enqueue(this.frameAt(s), EV_CLICK, 0, 0, 0, 0, local === 0 ? 1 : 0, 0, 1);
       for (let snd = 0; snd < SOUNDS; snd++) {
         const i = (pat * SOUNDS + snd) * STEPS + local;
         const mask = this.keys[i]!;
@@ -491,6 +515,12 @@ export class Engine {
       const since = this.qFrame[i]! - this.lastLive[this.qSound[i]! * KEYS + this.qKey[i]!]!;
       if (since >= 0 && since < LIVE_DEDUP_STEPS * this.samplesPerStep) return;
     }
+    if (type === EV_CLICK) {
+      this.click = this.qA[i] === 1 ? this.clickHi : this.clickLo;
+      this.clickPos = 0;
+      this.clickStart = this.dispatchOff;
+      return;
+    }
     if (type === EV_ON) this.noteOn(this.qSound[i]!, this.qKey[i]!, this.qVel[i]!, this.qId[i]!, this.qA[i]!, this.qB[i]!);
     else if (type === EV_OFF) this.noteOff(this.qSound[i]!, this.qKey[i]!, this.qId[i]!);
     else {
@@ -544,6 +574,7 @@ export class Engine {
       const off = Math.max(cursor, Math.min(n, Math.round(bestF - blockStart)));
       this.renderVoices(cursor, off);
       cursor = off;
+      this.dispatchOff = off;
       this.dispatch(best);
       this.removeAt(best);
     }
@@ -613,6 +644,17 @@ export class Engine {
       right[i] = right[i]! * mg;
     }
     if (this.capL) this.capture(left, right, n, blockStart);
+    // Metronome after the capture point: never recorded into resamples.
+    const ck = this.click;
+    if (ck) {
+      let i = this.clickStart >= 0 ? this.clickStart : 0;
+      this.clickStart = -1;
+      for (; i < n && this.clickPos < ck.length; i++, this.clickPos++) {
+        left[i]! += ck[this.clickPos]!;
+        right[i]! += ck[this.clickPos]!;
+      }
+      if (this.clickPos >= ck.length) this.click = null;
+    }
     this.limiter.process(left, right, n);
 
     let mp = this.masterPeak;

@@ -6,6 +6,7 @@ import { getSample } from '../store/samples';
 import { editPattern, selectedSound, writeMode } from './../ui/state';
 import { currentMessage, extendMessage } from './message';
 import { textColumns } from './font';
+import { recFlash } from '../ui/recorder';
 
 export const COLS = 96;
 export const ROWS = 12;
@@ -47,6 +48,11 @@ function peaksFor(id: string | null): Float32Array | null {
 
 /** Fills `dots` (COLS*ROWS, 1 = on) for the current state. Returns a signature to detect changes. */
 function compose(dots: Uint8Array, now: number): string {
+  const fl = now < recFlash.until ? recFlash.step : -1;
+  return `${composeInner(dots, now, fl)}:f${fl}`;
+}
+
+function composeInner(dots: Uint8Array, now: number, fl: number): string {
   dots.fill(0);
   const i = selectedSound.peek();
   const s = project.peek().sounds[i];
@@ -63,6 +69,8 @@ function compose(dots: Uint8Array, now: number): string {
     for (let k = 0; k < 4; k++) dots[(ROWS - 1) * COLS + x0 + 1 + k] = on ? 1 : st % 4 === 0 ? 1 : 0;
     if (on) for (let r = ROWS - 2; r <= ROWS - 1; r++) for (let k = 0; k < 4; k++) dots[r * COLS + x0 + 1 + k] = 1;
     else for (let k = 0; k < 4; k++) dots[(ROWS - 1) * COLS + x0 + 1 + k] = st % 4 === 0 ? 1 : 0;
+    // a just-recorded step: a tall block
+    if (st === fl) for (let r = ROWS - 5; r <= ROWS - 1; r++) for (let k = 0; k < 4; k++) dots[r * COLS + x0 + 1 + k] = 1;
   }
   if (msg) {
     const cols = textColumns(msg.text);

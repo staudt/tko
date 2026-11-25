@@ -62,6 +62,8 @@ export type EngineCommand =
   | { type: 'fxKnob'; fx: number; x: number; y: number }
   /** Record the master output into `l` (transferred), starting at the next pattern start while playing, else now. */
   | { type: 'resample'; id: string; l: Float32Array }
+  /** Metronome click on every beat while playing (accent on the pattern start). Not captured by resample. */
+  | { type: 'metronome'; on: boolean }
   /** Release everything now (notes, FX). */
   | { type: 'panic' };
 

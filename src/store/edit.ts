@@ -135,3 +135,11 @@ export function tapTempo(times: readonly number[]): number | null {
   const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
   return clamp(Math.round(60000 / avg), 30, 300);
 }
+
+/** Add one key to a step (recording: never removes). */
+export function addKey(p: Project, pat: number, snd: number, step: number, key: number): Project {
+  const cur = getStep(p, pat, snd, step);
+  const bit = 1 << clamp(key, 0, 15);
+  if (cur && cur.keys & bit) return p;
+  return setStep(p, pat, snd, step, { ...(cur ?? {}), keys: (cur?.keys ?? 0) | bit });
+}

@@ -11,7 +11,8 @@ import { canRedo, canUndo, redo, undo } from '../store/project';
 import { knobSpecs } from '../ui/knobMap';
 import { attachRouter } from '../ui/input/router';
 import { handlers } from '../ui/controls';
-import { locked, selectedSound } from '../ui/state';
+import { SettingsSheet } from '../ui/SettingsSheet';
+import { locked, selectedSound, settingsOpen } from '../ui/state';
 
 export function KnobRow() {
   const { title, a, b } = knobSpecs();
@@ -39,7 +40,12 @@ export function Instrument() {
   return (
     <div class="app" ref={root} data-sound={selectedSound.value}>
       <header class="hdr">
-        <span class="brand">tko</span>
+        <span class="hdr-l">
+          <button class="lock" aria-label="Settings" data-testid="menu" onClick={() => (settingsOpen.value = true)}>
+            <Icon name="menu" />
+          </button>
+          <span class="brand">tko</span>
+        </span>
         <span class="hdr-r">
         <button class="lock" aria-label="Undo" disabled={!canUndo.value} onClick={() => undo()}>
           <Icon name="undo" />
@@ -64,6 +70,7 @@ export function Instrument() {
       <PatternSheet />
       <BpmSheet />
       <StepSheet />
+      <SettingsSheet />
       <div class="rotate">Rotate your phone</div>
     </div>
   );

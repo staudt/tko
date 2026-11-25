@@ -10,6 +10,9 @@ export const fxPad = signal<number | null>(null);
 export const fxXY = signal<[number, number]>([0.5, 0.5]);
 export const soundSheetOpen = signal(false);
 export const locked = signal(false);
+/** REC armed: pad presses are recorded into the pattern while playing. */
+export const recArmed = signal(false);
+export const settingsOpen = signal(false);
 
 /** Write mode: the 16 pads are the steps of the selected sound's lane in `editPattern`. */
 export const writeMode = signal(false);

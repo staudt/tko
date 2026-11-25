@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audChainPos, audPattern, editPattern, heldControls, queuedPattern, selectedSound } from '../ui/state';
+import { audChainPos, audPattern, editPattern, heldControls, queuedPattern, recArmed, selectedSound } from '../ui/state';
 import { Digits } from './SevenSeg';
 import { Art } from './Art';
 import { startMatrix } from './Matrix';
@@ -20,7 +20,8 @@ export function Lcd() {
   const chain = p.chain;
   const idx = isPlaying && aud >= 0 ? audChainPos.value % chain.length : Math.max(0, chain.indexOf(patShown));
   const next = queued ?? (chain.length > 1 ? chain[(idx + 1) % chain.length]! : null);
-  const rec = heldControls.value.has('btn:rec');
+  const armed = recArmed.value;
+  const rec = armed || heldControls.value.has('btn:rec');
   return (
     <div class="lcd" data-testid="lcd" data-snd={snd + 1} data-pat={patShown + 1} aria-label={`SND ${pad2(snd + 1)}`}>
       <div class="lcd-top">
@@ -41,7 +42,7 @@ export function Lcd() {
           <svg viewBox="0 0 14 14" class={isPlaying ? 'seg on' : 'seg'} aria-label="play">
             <path d="M3 1.5v11l9-5.5z" />
           </svg>
-          <svg viewBox="0 0 14 14" class={rec ? 'seg on' : 'seg'} aria-label="rec">
+          <svg viewBox="0 0 14 14" class={`${rec ? 'seg on' : 'seg'}${armed && isPlaying ? ' blink' : ''}`} aria-label="rec">
             <circle cx="7" cy="7" r="5" />
           </svg>
         </span>

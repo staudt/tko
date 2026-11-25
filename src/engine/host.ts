@@ -210,3 +210,56 @@ export async function resample(patterns = 1): Promise<{ l: Float32Array; rate: n
     post({ type: 'resample', id, l }, [l.buffer]);
   });
 }
+
+/** Context time of a DOM event (event.timeStamp, ms on the performance clock). */
+export function ctxTimeOfEvent(timeStamp: number): number {
+  const ctx = getAudioContext();
+  return ctx.currentTime - Math.max(0, performance.now() - timeStamp) / 1000;
+}
+
+/** Output latency reported by the browser, in seconds (0 when unknown). */
+export function outputLatency(): number {
+  const ctx = getAudioContext();
+  return (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+}
+
+/**
+ * Musical position (in engine output time) at context time `t`: the latest step at or before t
+ * and the fraction into it. Null when stopped or before the first step.
+ */
+export function positionAt(t: number): { step: number; frac: number; pattern: number; chainPos: number } | null {
+  if (!node) return null;
+  let best = -1;
+  for (let i = 0; i < RING; i++) {
+    if (ringStep[i]! >= 0 && ringTime[i]! <= t && (best < 0 || ringTime[i]! > ringTime[best]!)) best = i;
+  }
+  if (best < 0) return null;
+  const stepDur = 60 / project.peek().bpm / 4;
+  return { step: ringStep[best]!, frac: (t - ringTime[best]!) / stepDur, pattern: ringPat[best]!, chainPos: ringChain[best]! };
+}
+
+export function setMetronome(on: boolean): void {
+  post({ type: 'metronome', on });
+}
+
+/**
+ * Calibration clicks: plays `count` clicks `period` s apart starting shortly, outside the engine.
+ * Returns the context times at which each click is heard (scheduled time + reported output latency).
+ */
+export async function playCalibrationClicks(count = 10, period = 0.5): Promise<number[]> {
+  await startAudio();
+  const ctx = getAudioContext();
+  const buf = ctx.createBuffer(1, Math.round(ctx.sampleRate * 0.03), ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.sin((2 * Math.PI * 1760 * i) / ctx.sampleRate) * Math.exp(-i / (ctx.sampleRate * 0.006)) * 0.5;
+  const t0 = ctx.currentTime + 0.6;
+  const heard: number[] = [];
+  for (let k = 0; k < count; k++) {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(t0 + k * period);
+    heard.push(t0 + k * period + outputLatency());
+  }
+  return heard;
+}

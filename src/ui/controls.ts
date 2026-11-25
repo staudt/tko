@@ -8,6 +8,8 @@ import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
 import { getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
 import { chainText, lenBetween } from './stepHelpers';
+import { clearHits, recordHit, recordRelease, toggleArm } from './recorder';
+import './settings';
 
 type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'none' };
 const padActions = new Map<number, PadAction>();
@@ -101,12 +103,16 @@ function stepUp(pid: number, cancelled: boolean): void {
 }
 
 export const handlers: RouterHandlers = {
-  down(id, pid) {
+  down(id, pid, e) {
     const h = heldControls.peek();
     if (id.startsWith('pad:')) {
       const k = Number(id.slice(4));
       markUsed();
-      if (h.has('fn:sound')) {
+      if (h.has('btn:rec')) {
+        // REC held is reserved for sampling (Phase 4): no arming, no note.
+        lcdMessage('SAMPLING SOON');
+        padActions.set(pid, { t: 'none' });
+      } else if (h.has('fn:sound')) {
         selectSound(k);
         padActions.set(pid, { t: 'none' });
       } else if (h.has('btn:write')) {
@@ -139,6 +145,7 @@ export const handlers: RouterHandlers = {
         setLastKey(sound, k);
         playKey(sound, k, true);
         padActions.set(pid, { t: 'note', sound, key: k });
+        recordHit(pid, sound, k, e.timeStamp);
         try {
           navigator.vibrate?.(8);
         } catch {
@@ -163,6 +170,7 @@ export const handlers: RouterHandlers = {
       padActions.delete(pid);
       if (a?.t === 'note') {
         playKey(a.sound, a.key, false);
+        recordRelease(pid);
       } else if (a?.t === 'fx') {
         fxPress(a.fx, false);
         if (fxPad.peek() === a.fx) fxPad.value = null;
@@ -178,6 +186,7 @@ export const handlers: RouterHandlers = {
       else if (id === 'fn:pattern') patternSheetOpen.value = true;
       else if (id === 'fn:bpm') bpmSheetOpen.value = true;
     }
+    if (id === 'btn:rec' && f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) toggleArm();
     // WRITE toggles on a tap; held with a pad it chose the write key instead.
     if (id === 'btn:write' && f && !cancelled && !f.used) {
       writeMode.value = !writeMode.peek();
@@ -186,6 +195,7 @@ export const handlers: RouterHandlers = {
   },
   reset() {
     padActions.clear();
+    clearHits();
     fnDown.clear();
     for (const s of stepPress.values()) if (s.timer) clearTimeout(s.timer);
     stepPress.clear();

@@ -14,3 +14,12 @@
 - Tests: `tests/e2e/seq.spec.ts`, `tests/unit/stepHelpers.test.ts`. Screenshots: `docs/screenshots/*-390x844.png`.
 
 **Try on the phone:** step tap vs long-press timing (350/450 ms), knob-while-holding-step feel, tap tempo, BPM hold-to-repeat, playhead sync with audio.
+
+## Phase 3 — live recording, latency calibration, metronome (2026-11-25)
+- REC tap arms (red LED, blinking LCD rec icon while armed and playing); REC hold + pad shows "SAMPLING SOON" (reserved for Phase 4, no note, no arming).
+- Armed + playing: pad hits still sound at once and are also written: heard time = event time - output latency - user offset, quantized to the nearest step (`quantizeHit`), melodic hold length via `heldLength`. One take (arm/play until disarm/stop) = one undo step (`rec:N` merge key). LCD step row flashes a tall block on the recorded step.
+- Metronome follows settings (always on / while recording, default on while recording) through `src/ui/settings.ts`.
+- Header menu button opens Settings: metronome toggles, latency offset slider (-50..250 ms, -/+), Calibrate (tap along with 10 clicks, "Use NN ms"), licenses links. Stored in localStorage `tko.settings`.
+- Tests: `tests/unit/settings.test.ts`, `tests/e2e/rec.spec.ts`. Screenshots: `docs/screenshots/{rec-armed,settings,calibrate}-390x844.png`.
+
+**Try on the phone:** do the calibration a few times (with speaker and with headphones; Bluetooth especially) and check the offsets agree; arm REC, play, finger-drum on the beat and listen whether recorded hits land where you played them (adjust latency +/-); hits near the end of a pattern landing on step 1 of the next; held melodic notes get a length; metronome click level and timing; one Undo removes a whole take.

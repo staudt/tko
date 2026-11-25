@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { FX_DEFS } from '../engine/fx/ids';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, writeMode } from './state';
+import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode } from './state';
 import { getStep, patternIsEmpty } from '../store/edit';
 import { hasExtras, stepLabel, keyLabel } from './stepHelpers';
 
@@ -17,6 +17,7 @@ export const Icon = ({ name }: { name: string }) => {
     write: <path d="M4 20l1-5L16 4l4 4L9 19zM14 6l4 4" />,
     undo: <path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />,
     redo: <path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" />,
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     lock: <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z" />,
   };
   return (
@@ -128,7 +129,7 @@ export function PadGrid() {
         <Pad key={k} k={k} />
       ))}
       <div class="side" style={{ gridColumn: 6, gridRow: 1 }}>
-        <FnButton id="btn:rec" label="REC" icon="rec" variant="rec" />
+        <FnButton id="btn:rec" label="REC" icon="rec" variant="rec" lit={recArmed.value || heldControls.value.has('btn:rec')} />
       </div>
       <div class="side" style={{ gridColumn: 6, gridRow: 2 }}>
         <FnButton id="btn:fx" label="FX" icon="fx" variant="fx" />
