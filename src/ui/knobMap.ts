@@ -1,0 +1,102 @@
+// What knobs A and B do in each mode (value mapping, readout text, store edits).
+import { apply, project, updateSound } from '../store/project';
+import { fxKnob } from '../engine/host';
+import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
+import { fxPad, fxXY, knobMode, selectedSound } from './state';
+import { markUsed, setBpm, setSwing } from './controls';
+
+export type KnobSpec = { label: string; text: string; value: number; def: number; disabled?: boolean; onChange: (v: number, first: boolean) => void };
+export type KnobSpecs = { title: string; a: KnobSpec; b: KnobSpec };
+
+let dragN = 0;
+const drags = { A: 0, B: 0 };
+const key = (k: 'A' | 'B', first: boolean, i: number) => {
+  if (first) drags[k] = ++dragN;
+  return `knob${k}:${i}:${drags[k]}`;
+};
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+const toneText = (t: number) => (Math.abs(t) < 0.005 ? 'OPEN' : `${t < 0 ? 'LP' : 'HP'} ${Math.round(Math.abs(t) * 100)}`);
+
+export function knobSpecs(): KnobSpecs {
+  const mode = knobMode.value;
+  const i = selectedSound.value;
+  const p = project.value;
+  const s = p.sounds[i];
+  const pad = (n: number) => String(n + 1).padStart(2, '0');
+
+  if (mode === 'fx') {
+    const k = fxPad.value!;
+    const def = FX_DEFS[k]!;
+    const [x, y] = fxXY.value;
+    const d = FX_DEFAULT_XY[FX_IDS[k]!];
+    const send = (nx: number, ny: number) => {
+      fxXY.value = [nx, ny];
+      fxKnob(k, nx, ny);
+    };
+    return {
+      title: `${def.label} ${def.sub}`.toUpperCase(),
+      a: { label: `FX ${def.x}`, text: `${def.x} ${Math.round(x * 100)}`.toUpperCase(), value: x, def: d[0], onChange: (v, f) => (f && markUsed(), send(v, fxXY.peek()[1])) },
+      b: { label: `FX ${def.y}`, text: `${def.y} ${Math.round(y * 100)}`.toUpperCase(), value: y, def: d[1], onChange: (v, f) => (f && markUsed(), send(fxXY.peek()[0], v)) },
+    };
+  }
+  if (mode === 'bpm') {
+    return {
+      title: 'BPM',
+      a: { label: 'Tempo', text: `TEMPO ${p.bpm}`, value: (p.bpm - 40) / 200, def: 0.4, onChange: (v, f) => (f && markUsed(), setBpm(Math.round(40 + clamp01(v) * 200))) },
+      b: { label: 'Swing', text: `SWING ${p.swing}%`, value: (p.swing - 50) / 25, def: 0, onChange: (v, f) => (f && markUsed(), setSwing(Math.round(50 + clamp01(v) * 25))) },
+    };
+  }
+  if (mode === 'trim' && s) {
+    if (s.kind === 'drum') {
+      return {
+        title: `SOUND ${pad(i)}`,
+        a: {
+          label: 'Volume',
+          text: `VOL ${Math.round(s.volume * 100)}%`,
+          value: s.volume,
+          def: 0.8,
+          onChange: (v, f) => (f && markUsed(), apply((q) => updateSound(q, i, { volume: Math.round(clamp01(v) * 100) / 100 }), { merge: key('A', f, i) })),
+        },
+        b: { label: 'n/a', text: '—', value: 0, def: 0, disabled: true, onChange: () => {} },
+      };
+    }
+    return {
+      title: `SOUND ${pad(i)} TRIM`,
+      a: {
+        label: 'Trim start',
+        text: `START ${Math.round(s.start * 100)}%`,
+        value: s.start,
+        def: 0,
+        onChange: (v, f) => (f && markUsed(), apply((q) => updateSound(q, i, { start: Math.min(clamp01(v), (q.sounds[i]?.end ?? 1) - 0.01) }), { merge: key('A', f, i) })),
+      },
+      b: {
+        label: 'Trim end',
+        text: `END ${Math.round(s.end * 100)}%`,
+        value: s.end,
+        def: 1,
+        onChange: (v, f) => (f && markUsed(), apply((q) => updateSound(q, i, { end: Math.max(clamp01(v), (q.sounds[i]?.start ?? 0) + 0.01) }), { merge: key('B', f, i) })),
+      },
+    };
+  }
+  const pitch = s?.pitch ?? 0;
+  const tone = s?.tone ?? 0;
+  return {
+    title: s ? `${pad(i)} ${s.name}`.toUpperCase() : pad(i),
+    a: {
+      label: 'Pitch',
+      text: `PITCH ${signed(Math.round(pitch))}`,
+      value: (pitch + 12) / 24,
+      def: 0.5,
+      onChange: (v, f) => apply((q) => updateSound(q, i, { pitch: Math.round(-12 + clamp01(v) * 24) }), { merge: key('A', f, i) }),
+    },
+    b: {
+      label: 'Tone',
+      text: `TONE ${toneText(tone)}`,
+      value: (tone + 1) / 2,
+      def: 0.5,
+      onChange: (v, f) => apply((q) => updateSound(q, i, { tone: Math.abs(v - 0.5) < 0.02 ? 0 : Math.round((clamp01(v) * 2 - 1) * 100) / 100 }), { merge: key('B', f, i) }),
+    },
+  };
+}

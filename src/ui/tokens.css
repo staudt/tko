@@ -1,0 +1,23 @@
+:root {
+  --ground: #111214;
+  --header: #0c0d0f;
+  --pad-top: #2c2f35;
+  --pad-bot: #212328;
+  --pad-edge: #0a0b0c;
+  --text: #e6e7ea;
+  --muted: #8b8f98;
+  --amber: #ffa53a;
+  --amber-glow: rgba(255, 165, 58, 0.55);
+  --rec: #ff5a3c;
+  --rec-glow: rgba(255, 90, 60, 0.55);
+  --ring-off: rgba(255, 255, 255, 0.07);
+  --lcd-a: #c3cbb0;
+  --lcd-b: #aeb89b;
+  --lcd-ink: #1c2418;
+  --lcd-ghost: rgba(28, 36, 24, 0.075);
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --gutter: 10px;
+  --gap: 6px;
+  --knob: clamp(72px, 11.5dvh, 96px);
+}

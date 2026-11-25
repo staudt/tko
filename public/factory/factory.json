@@ -1,0 +1,790 @@
+{
+  "version": 1,
+  "sampleRate": 44100,
+  "slots": [
+    {
+      "slot": 0,
+      "name": "Round Bass",
+      "kind": "melodic",
+      "file": "01-round-bass.mp3",
+      "root": 48,
+      "start": 0.08,
+      "duration": 1.6
+    },
+    {
+      "slot": 1,
+      "name": "Glass Keys",
+      "kind": "melodic",
+      "file": "02-glass-keys.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 2.2
+    },
+    {
+      "slot": 2,
+      "name": "Electric Piano",
+      "kind": "melodic",
+      "file": "03-electric-piano.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 2.3
+    },
+    {
+      "slot": 3,
+      "name": "Soft Pad",
+      "kind": "melodic",
+      "file": "04-soft-pad.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 3.2
+    },
+    {
+      "slot": 4,
+      "name": "Brass",
+      "kind": "melodic",
+      "file": "05-brass.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 1.9
+    },
+    {
+      "slot": 5,
+      "name": "Pluck Lead",
+      "kind": "melodic",
+      "file": "06-pluck-lead.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 1.4
+    },
+    {
+      "slot": 6,
+      "name": "Bell",
+      "kind": "melodic",
+      "file": "07-bell.mp3",
+      "root": 72,
+      "start": 0.08,
+      "duration": 3.4
+    },
+    {
+      "slot": 7,
+      "name": "Marimba",
+      "kind": "melodic",
+      "file": "08-marimba.mp3",
+      "root": 60,
+      "start": 0.08,
+      "duration": 1.4
+    },
+    {
+      "slot": 8,
+      "name": "Studio kit",
+      "kind": "drum",
+      "file": "09-studio-kit.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "kick",
+          "start": 0.08,
+          "duration": 0.75
+        },
+        {
+          "name": "snare",
+          "start": 0.91,
+          "duration": 0.75
+        },
+        {
+          "name": "sidestick",
+          "start": 1.74,
+          "duration": 0.6
+        },
+        {
+          "name": "clap",
+          "start": 2.42,
+          "duration": 0.3507
+        },
+        {
+          "name": "hatClosed",
+          "start": 2.8507,
+          "duration": 0.4
+        },
+        {
+          "name": "hatPedal",
+          "start": 3.3307,
+          "duration": 0.4
+        },
+        {
+          "name": "hatOpen",
+          "start": 3.8107,
+          "duration": 1
+        },
+        {
+          "name": "ride",
+          "start": 4.8907,
+          "duration": 1.2
+        },
+        {
+          "name": "rideBell",
+          "start": 6.1707,
+          "duration": 1.2
+        },
+        {
+          "name": "crash",
+          "start": 7.4507,
+          "duration": 1.2
+        },
+        {
+          "name": "crash2",
+          "start": 8.7307,
+          "duration": 1.2
+        },
+        {
+          "name": "tomHigh",
+          "start": 10.0107,
+          "duration": 1.1
+        },
+        {
+          "name": "tomMid",
+          "start": 11.1907,
+          "duration": 1.2
+        },
+        {
+          "name": "tomFloor",
+          "start": 12.4707,
+          "duration": 1.2
+        },
+        {
+          "name": "tambourine",
+          "start": 13.7507,
+          "duration": 0.6
+        },
+        {
+          "name": "cowbell",
+          "start": 14.4307,
+          "duration": 0.6
+        }
+      ]
+    },
+    {
+      "slot": 9,
+      "name": "Boom kit",
+      "kind": "drum",
+      "file": "10-boom-kit.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "sub",
+          "start": 0.08,
+          "duration": 1.5
+        },
+        {
+          "name": "boom",
+          "start": 1.66,
+          "duration": 1.2
+        },
+        {
+          "name": "808",
+          "start": 2.94,
+          "duration": 0.95
+        },
+        {
+          "name": "thump",
+          "start": 3.97,
+          "duration": 0.55
+        },
+        {
+          "name": "snare",
+          "start": 4.6,
+          "duration": 0.55
+        },
+        {
+          "name": "snare long",
+          "start": 5.23,
+          "duration": 0.75
+        },
+        {
+          "name": "clap",
+          "start": 6.06,
+          "duration": 0.35
+        },
+        {
+          "name": "snap",
+          "start": 6.49,
+          "duration": 0.22
+        },
+        {
+          "name": "hat closed",
+          "start": 6.79,
+          "duration": 0.15
+        },
+        {
+          "name": "hat short",
+          "start": 7.02,
+          "duration": 0.25
+        },
+        {
+          "name": "hat open",
+          "start": 7.35,
+          "duration": 0.8
+        },
+        {
+          "name": "hat wash",
+          "start": 8.23,
+          "duration": 1.1
+        },
+        {
+          "name": "tom low",
+          "start": 9.41,
+          "duration": 0.7
+        },
+        {
+          "name": "tom mid",
+          "start": 10.19,
+          "duration": 0.6
+        },
+        {
+          "name": "tom high",
+          "start": 10.87,
+          "duration": 0.5
+        },
+        {
+          "name": "cowbell",
+          "start": 11.45,
+          "duration": 0.35
+        }
+      ]
+    },
+    {
+      "slot": 10,
+      "name": "Tight kit",
+      "kind": "drum",
+      "file": "11-tight-kit.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "kick tight",
+          "start": 0.08,
+          "duration": 0.3
+        },
+        {
+          "name": "kick punch",
+          "start": 0.46,
+          "duration": 0.4
+        },
+        {
+          "name": "kick dry",
+          "start": 0.94,
+          "duration": 0.22
+        },
+        {
+          "name": "kick soft",
+          "start": 1.24,
+          "duration": 0.45
+        },
+        {
+          "name": "snare tight",
+          "start": 1.77,
+          "duration": 0.28
+        },
+        {
+          "name": "snare crack",
+          "start": 2.13,
+          "duration": 0.35
+        },
+        {
+          "name": "snare body",
+          "start": 2.56,
+          "duration": 0.45
+        },
+        {
+          "name": "rim",
+          "start": 3.09,
+          "duration": 0.12
+        },
+        {
+          "name": "hat 1",
+          "start": 3.29,
+          "duration": 0.1
+        },
+        {
+          "name": "hat 2",
+          "start": 3.47,
+          "duration": 0.14
+        },
+        {
+          "name": "hat 3",
+          "start": 3.69,
+          "duration": 0.18
+        },
+        {
+          "name": "hat open",
+          "start": 3.95,
+          "duration": 0.5
+        },
+        {
+          "name": "tom low",
+          "start": 4.53,
+          "duration": 0.35
+        },
+        {
+          "name": "tom high",
+          "start": 4.96,
+          "duration": 0.3
+        },
+        {
+          "name": "block",
+          "start": 5.34,
+          "duration": 0.12
+        },
+        {
+          "name": "tick",
+          "start": 5.54,
+          "duration": 0.08
+        }
+      ]
+    },
+    {
+      "slot": 11,
+      "name": "Lo-fi perc",
+      "kind": "drum",
+      "file": "12-lo-fi-perc.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "wood low",
+          "start": 0.08,
+          "duration": 0.2
+        },
+        {
+          "name": "wood mid",
+          "start": 0.36,
+          "duration": 0.18
+        },
+        {
+          "name": "wood high",
+          "start": 0.62,
+          "duration": 0.15
+        },
+        {
+          "name": "conga low",
+          "start": 0.85,
+          "duration": 0.45
+        },
+        {
+          "name": "conga high",
+          "start": 1.38,
+          "duration": 0.4
+        },
+        {
+          "name": "bongo",
+          "start": 1.86,
+          "duration": 0.3
+        },
+        {
+          "name": "bell low",
+          "start": 2.24,
+          "duration": 0.8
+        },
+        {
+          "name": "bell high",
+          "start": 3.12,
+          "duration": 0.75
+        },
+        {
+          "name": "clink",
+          "start": 3.95,
+          "duration": 0.3
+        },
+        {
+          "name": "boing",
+          "start": 4.33,
+          "duration": 0.5
+        },
+        {
+          "name": "blip",
+          "start": 4.91,
+          "duration": 0.15
+        },
+        {
+          "name": "tonk",
+          "start": 5.14,
+          "duration": 0.25
+        },
+        {
+          "name": "shaker",
+          "start": 5.47,
+          "duration": 0.25
+        },
+        {
+          "name": "tick",
+          "start": 5.8,
+          "duration": 0.08
+        },
+        {
+          "name": "snap",
+          "start": 5.96,
+          "duration": 0.22
+        },
+        {
+          "name": "thud",
+          "start": 6.26,
+          "duration": 0.35
+        }
+      ]
+    },
+    {
+      "slot": 12,
+      "name": "Tom ladder",
+      "kind": "drum",
+      "file": "13-tom-ladder.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "C2",
+          "start": 0.08,
+          "duration": 0.65
+        },
+        {
+          "name": "Eb2",
+          "start": 0.81,
+          "duration": 0.63
+        },
+        {
+          "name": "F2",
+          "start": 1.52,
+          "duration": 0.61
+        },
+        {
+          "name": "G2",
+          "start": 2.21,
+          "duration": 0.59
+        },
+        {
+          "name": "Bb2",
+          "start": 2.88,
+          "duration": 0.57
+        },
+        {
+          "name": "C3",
+          "start": 3.53,
+          "duration": 0.55
+        },
+        {
+          "name": "Eb3",
+          "start": 4.16,
+          "duration": 0.53
+        },
+        {
+          "name": "F3",
+          "start": 4.77,
+          "duration": 0.51
+        },
+        {
+          "name": "G3",
+          "start": 5.36,
+          "duration": 0.49
+        },
+        {
+          "name": "Bb3",
+          "start": 5.93,
+          "duration": 0.47
+        },
+        {
+          "name": "C4",
+          "start": 6.48,
+          "duration": 0.45
+        },
+        {
+          "name": "Eb4",
+          "start": 7.01,
+          "duration": 0.43
+        },
+        {
+          "name": "F4",
+          "start": 7.52,
+          "duration": 0.41
+        },
+        {
+          "name": "G4",
+          "start": 8.01,
+          "duration": 0.39
+        },
+        {
+          "name": "Bb4",
+          "start": 8.48,
+          "duration": 0.37
+        },
+        {
+          "name": "C5",
+          "start": 8.93,
+          "duration": 0.35
+        }
+      ]
+    },
+    {
+      "slot": 13,
+      "name": "Kick bank",
+      "kind": "drum",
+      "file": "14-kick-bank.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "deep sub",
+          "start": 0.08,
+          "duration": 1.6
+        },
+        {
+          "name": "sub 2",
+          "start": 1.76,
+          "duration": 1.3
+        },
+        {
+          "name": "boom",
+          "start": 3.14,
+          "duration": 1
+        },
+        {
+          "name": "long",
+          "start": 4.22,
+          "duration": 0.85
+        },
+        {
+          "name": "round",
+          "start": 5.15,
+          "duration": 0.65
+        },
+        {
+          "name": "classic",
+          "start": 5.88,
+          "duration": 0.5
+        },
+        {
+          "name": "punch",
+          "start": 6.46,
+          "duration": 0.45
+        },
+        {
+          "name": "click",
+          "start": 6.99,
+          "duration": 0.4
+        },
+        {
+          "name": "short",
+          "start": 7.47,
+          "duration": 0.28
+        },
+        {
+          "name": "tight",
+          "start": 7.83,
+          "duration": 0.2
+        },
+        {
+          "name": "tick",
+          "start": 8.11,
+          "duration": 0.14
+        },
+        {
+          "name": "mid pitch",
+          "start": 8.33,
+          "duration": 0.5
+        },
+        {
+          "name": "high thump",
+          "start": 8.91,
+          "duration": 0.4
+        },
+        {
+          "name": "zap",
+          "start": 9.39,
+          "duration": 0.3
+        },
+        {
+          "name": "soft",
+          "start": 9.77,
+          "duration": 0.6
+        },
+        {
+          "name": "dirty",
+          "start": 10.45,
+          "duration": 0.7
+        }
+      ]
+    },
+    {
+      "slot": 14,
+      "name": "Snare & clap bank",
+      "kind": "drum",
+      "file": "15-snare-clap-bank.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "snare 1",
+          "start": 0.08,
+          "duration": 0.55
+        },
+        {
+          "name": "snare 2",
+          "start": 0.71,
+          "duration": 0.5
+        },
+        {
+          "name": "snare 3",
+          "start": 1.29,
+          "duration": 0.45
+        },
+        {
+          "name": "snare 4",
+          "start": 1.82,
+          "duration": 0.4
+        },
+        {
+          "name": "snare 5",
+          "start": 2.3,
+          "duration": 0.33
+        },
+        {
+          "name": "snare tight",
+          "start": 2.71,
+          "duration": 0.2
+        },
+        {
+          "name": "snare long",
+          "start": 2.99,
+          "duration": 0.9
+        },
+        {
+          "name": "snare rim",
+          "start": 3.97,
+          "duration": 0.16
+        },
+        {
+          "name": "clap 1",
+          "start": 4.21,
+          "duration": 0.4
+        },
+        {
+          "name": "clap 2",
+          "start": 4.69,
+          "duration": 0.45
+        },
+        {
+          "name": "clap short",
+          "start": 5.22,
+          "duration": 0.2
+        },
+        {
+          "name": "clap long",
+          "start": 5.5,
+          "duration": 0.8
+        },
+        {
+          "name": "snap 1",
+          "start": 6.38,
+          "duration": 0.2
+        },
+        {
+          "name": "snap 2",
+          "start": 6.66,
+          "duration": 0.12
+        },
+        {
+          "name": "noise hit",
+          "start": 6.86,
+          "duration": 0.4
+        },
+        {
+          "name": "thump snare",
+          "start": 7.34,
+          "duration": 0.5
+        }
+      ]
+    },
+    {
+      "slot": 15,
+      "name": "Hats & metal",
+      "kind": "drum",
+      "file": "16-hats-metal.mp3",
+      "root": 60,
+      "hits": [
+        {
+          "name": "closed 1",
+          "start": 0.08,
+          "duration": 0.09
+        },
+        {
+          "name": "closed 2",
+          "start": 0.25,
+          "duration": 0.12
+        },
+        {
+          "name": "closed 3",
+          "start": 0.45,
+          "duration": 0.14
+        },
+        {
+          "name": "pedal",
+          "start": 0.67,
+          "duration": 0.2
+        },
+        {
+          "name": "half open",
+          "start": 0.95,
+          "duration": 0.4
+        },
+        {
+          "name": "open 1",
+          "start": 1.43,
+          "duration": 0.65
+        },
+        {
+          "name": "open 2",
+          "start": 2.16,
+          "duration": 0.9
+        },
+        {
+          "name": "wash",
+          "start": 3.14,
+          "duration": 1.2
+        },
+        {
+          "name": "hi tick",
+          "start": 4.42,
+          "duration": 0.1
+        },
+        {
+          "name": "lo tick",
+          "start": 4.6,
+          "duration": 0.12
+        },
+        {
+          "name": "shimmer",
+          "start": 4.8,
+          "duration": 0.9
+        },
+        {
+          "name": "dark open",
+          "start": 5.78,
+          "duration": 0.7
+        },
+        {
+          "name": "metal 1",
+          "start": 6.56,
+          "duration": 0.5
+        },
+        {
+          "name": "metal 2",
+          "start": 7.14,
+          "duration": 0.45
+        },
+        {
+          "name": "metal 3",
+          "start": 7.67,
+          "duration": 0.6
+        },
+        {
+          "name": "clang",
+          "start": 8.35,
+          "duration": 0.8
+        }
+      ]
+    }
+  ]
+}
