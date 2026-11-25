@@ -8,7 +8,13 @@ export const heldControls = signal<ReadonlySet<string>>(new Set());
 export const fxPad = signal<number | null>(null);
 /** X/Y of the held FX (0..1), driven by the knobs. */
 export const fxXY = signal<[number, number]>([0.5, 0.5]);
-export const soundSheetOpen = signal(false);
+/** Latching pad tab: what the 16 pads are while nothing is held (write mode is a separate toggle). */
+export type PadMode = 'play' | 'sound' | 'pattern' | 'fx';
+export const padMode = signal<PadMode>('play');
+/** Inline long-press popover anchored on pad `k` (sound or pattern tab), else null. */
+export const padPopover = signal<{ kind: 'sound' | 'pattern'; k: number } | null>(null);
+/** Pattern copied with the pattern popover (immutable data, shared), else null. */
+export const patternClip = signal<import('../store/types').Pattern | null>(null);
 export const locked = signal(false);
 /** REC armed: pad presses are recorded into the pattern while playing. */
 export const recArmed = signal(false);
@@ -53,7 +59,6 @@ export const queuedPattern = signal<number | null>(null);
 /** Audible pattern while playing (rAF-updated, only on change), else -1. */
 export const audPattern = signal(-1);
 export const audChainPos = signal(0);
-export const patternSheetOpen = signal(false);
 /** Tap-tempo: true while collecting taps; `tapPulse` bumps per tap (flash). */
 export const tapCollecting = signal(false);
 export const tapPulse = signal(0);
@@ -63,13 +68,14 @@ export const eraseFlash = signal(-1);
 /** Step whose sheet is open (null = closed). */
 export const stepSheet = signal<number | null>(null);
 
-export type KnobMode = 'default' | 'trim' | 'bpm' | 'fx' | 'lock';
+export type KnobMode = 'default' | 'trim' | 'bpm' | 'fx' | 'lock' | 'tune';
 export const knobMode = computed<KnobMode>(() => {
   const h = heldControls.value;
   if (fxPad.value !== null) return 'fx';
   if (h.has('fn:bpm')) return 'bpm';
   if (h.has('fn:sound')) return 'trim';
   if (writeMode.value && heldStep.value !== null && !h.has('fn:pattern')) return 'lock';
+  if (padMode.value === 'sound') return 'tune';
   return 'default';
 });
 

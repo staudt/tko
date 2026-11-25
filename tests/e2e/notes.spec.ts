@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, commands, startEngine, Touch } from './helpers';
+import { center, commands, dragKnob, longPress, startEngine, Touch } from './helpers';
 import { scaleOffsets } from '../../src/store/scales';
 
 type Packed = { keys: ArrayLike<number>; fx: ArrayLike<number> };
@@ -25,33 +25,28 @@ const btn = (page: Page, name: string) => page.getByRole('button', { name, exact
 test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
   test.skip(({ isMobile }) => !isMobile, 'touch only');
 
-  test('key and scale selectors change the project and the engine', async ({ page }) => {
+  test('sound-mode knobs change key and scale, in the project and the engine', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'SOUND'));
-    await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
-    await page.getByTestId('chip-key').tap();
-    await page.getByTestId('opt-key-2').tap();
-    await page.getByTestId('chip-scale').tap();
-    await page.getByTestId('opt-scale-minPent').tap();
-    await expect(page.getByTestId('chip-key')).toContainText('D');
-    await expect(page.getByTestId('chip-scale')).toContainText('Minor pentatonic');
+    await dragKnob(t, page, page.getByTestId('knob-a'), 30);
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'scale').pop()?.key).toBeGreaterThan(0);
+    await dragKnob(t, page, page.getByTestId('knob-b'), 160);
     await expect
       .poll(async () => (await commands(page)).filter((c) => c.type === 'scale').pop())
-      .toMatchObject({ key: 2, offsets: scaleOffsets('minPent') });
+      .toMatchObject({ offsets: scaleOffsets('blues') });
+    await expect(page.getByTestId('knob-b-label')).toHaveText('SCALE BLUES');
   });
 
-  test('melodic pads show note names; key and scale change them', async ({ page }) => {
+  test('melodic pads show note names; scale change updates them', async ({ page }) => {
     await startEngine(page);
     const lbl = (k: number) => page.getByTestId(`pad-${k}`).locator('.lbl');
     await expect(lbl(1)).toHaveText(/^[A-G]#?-?\d$/);
     const before = await lbl(2).textContent();
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'SOUND'));
-    await page.getByTestId('chip-scale').tap();
-    await page.getByTestId('opt-scale-minPent').tap();
-    await page.locator('.sheet-wrap.open .backdrop').dispatchEvent('pointerdown');
-    await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
+    await dragKnob(t, page, page.getByTestId('knob-b'), 55);
+    await tapCtl(t, page, btn(page, 'SOUND'));
     await expect(lbl(2)).not.toHaveText(before!);
     await expect(page.getByTestId('pad-1')).toHaveClass(/\btonic\b/);
   });
@@ -136,7 +131,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     expect((await commands(page)).filter((c) => c.type === 'play' && c.on).length).toBe(n0);
   });
 
-  test('SOUND held: dot shows notes in the edit pattern; card long-press clears the lane', async ({ page }) => {
+  test('SOUND held / tab: dot shows notes in the edit pattern; long-press pad clears the lane', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'WRITE'));
@@ -146,17 +141,21 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await t.down(1, s.x, s.y);
     await expect(page.getByTestId('pad-1').locator('.dot')).toHaveClass(/\bon\b/);
     await expect(page.getByTestId('pad-5').locator('.dot')).not.toHaveClass(/\bon\b/);
+    await page.waitForTimeout(400); // a long hold is not a tab tap
     await t.up(1);
-    await page.waitForTimeout(300);
+    await expect(btn(page, 'SOUND')).toHaveAttribute('aria-pressed', 'false');
     await tapCtl(t, page, btn(page, 'SOUND'));
-    await expect(page.getByRole('dialog', { name: 'Sounds' })).toBeVisible();
-    const c = await center(page.getByTestId('card-1'));
-    await t.down(1, c.x, c.y);
-    await page.waitForTimeout(600);
-    await t.up(1);
-    await expect(page.getByTestId('clear-lane')).toBeVisible();
-    await page.getByTestId('clear-lane').tap();
+    await expect(btn(page, 'SOUND')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('pad-1').locator('.dot')).toHaveClass(/\bon\b/);
+    await longPress(t, page, page.getByTestId('pad-1'));
+    await expect(page.getByTestId('pop-clear')).toContainText('Clear in P01');
+    await page.getByTestId('pop-clear').tap();
     await expect.poll(() => lane0(page)).toBe(0);
+    // long-press did not select anything; Edit sample opens the sample sheet for that slot
+    await longPress(t, page, page.getByTestId('pad-3'));
+    await page.getByTestId('pop-sample').tap();
+    await expect(page.getByRole('dialog', { name: 'Sample' })).toBeVisible();
+    await expect(page.getByTestId('lcd')).toHaveAttribute('data-snd', '3');
   });
 
   test('layout: five-button function row fits 360x640', async ({ page }) => {

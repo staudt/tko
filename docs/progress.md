@@ -55,3 +55,13 @@
 - Tests: `tests/e2e/sample.spec.ts` (fake mic in `fakeMic.ts`, denied mic, import, restore, rename, trim drag, slices, 360x640 layout). Screenshots: `docs/screenshots/sample-{recording,sheet-melodic,sheet-drum}-390x844.png`.
 
 **Try on the phone:** the mic permission prompt on first use (the first hold may be cancelled by the prompt; hold again), record latency at the pad press, level meter responsiveness, trim of silence at start/end of your takes, auto-slice quality on real loops, handle drag feel and the 12 px marker grab radius on a small phone, resample timing against the pattern start, Bluetooth headset mic behaviour.
+
+## Navigation rework: SOUND / PATTERN / FX are latching pad tabs (2026-11-25)
+- New UI state `padMode` ('play' | 'sound' | 'pattern' | 'fx', `src/ui/state.ts`); write mode stays a separate toggle (turning it on returns to play). SOUND, PATTERN and FX buttons are tabs, lit while active; a quick tap toggles, tapping another tab switches. Hold combos (hold SOUND + pad, PATTERN + pads, FX + pad) still work and override the tab; a press that touched a pad is a combo, not a tap.
+- SOUND tab: pads show the 16 names (dot = notes in the audible/edit pattern, lit = selected); tap selects, auditions key 0 and returns to play; long-press (450 ms) opens an inline popover on the pad: "Clear in Pnn", "Edit sample" (Sample sheet). Knobs: A = project key (12 detents), B = scale (detents), undo merged per drag, LCD message.
+- PATTERN tab: pads P01..P16 with a 16-column step-density bar graph, chain badge (#1, #2..), pulse = audible, dashed ring + "next" = queued. First tap of a visit sets chain [k] and edits k; later taps append (LCD "CHAIN 3-1-4", one undo step per visit). Long-press = popover Copy / Paste (enabled once copied) / Clear.
+- FX tab: pads show FX_DEFS labels (read dynamically); press and hold = effect on, several at once; knobs follow the most recently pressed held effect (falls back to the previous held one on release); FX recording unchanged.
+- Removed SoundSheet.tsx and PatternSheet.tsx (+ signals, CSS). New `src/ui/PadPopover.tsx`. Hint line describes each mode.
+- Tests: new/rewritten e2e in ui, seq, notes, sample specs (tab select, key/scale knobs, chain via tab, copy/paste/clear popover, FX tab incl. multi-touch, 360x640 layout in each mode). Screenshots: `docs/screenshots/mode-{sound,pattern,pattern-popover,fx}-390x844.png`.
+
+**Try on the phone:** long-press timing (450 ms) vs. tap on pads, popover reach on edge pads, pattern density bars legibility, key/scale knob detent feel, multi-finger FX in the tab, hint line truncation on narrow phones.

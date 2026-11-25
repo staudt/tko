@@ -1,15 +1,15 @@
 // Behaviour of every control (Phase 1 + 2). Called by the pointer router.
 import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
-import { FX_DEFAULT_XY, FX_IDS } from '../engine/fx/ids';
+import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, sampleSheetOpen, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
+import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, padMode, padPopover, queuedPattern, sampleSheetOpen, selectedSound, setLastKey, stepSheet, writeMode, type PadMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
-import { getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
+import { clearLane, getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
 import { chainText, lenBetween } from './stepHelpers';
 import { clearHits, recordFxDown, recordFxUp, recordHit, recordRelease, toggleArm } from './recorder';
-import { eraseBegin, eraseFxHeld, eraseLiveStep, eraseSoundHeld, eraseStepHeld } from './erase';
+import { targetPattern, eraseBegin, eraseFxHeld, eraseLiveStep, eraseSoundHeld, eraseStepHeld } from './erase';
 import { onStep } from './stepTicker';
 import { beginRecord, endRecord, recordingSlot } from './sampling';
 import { setSettings, settings } from './settings';
@@ -23,6 +23,14 @@ const fnDown = new Map<string, { t: number; used: boolean }>();
 type StepPress = { step: number; t: number; used: boolean; timer: ReturnType<typeof setTimeout> | null; sheet?: boolean };
 const stepPress = new Map<number, StepPress>();
 
+/** Pads pressed in the SOUND / PATTERN tabs: a tap acts on release, a long-press opens the popover. */
+type TabPress = { mode: 'sound' | 'pattern'; k: number; timer: ReturnType<typeof setTimeout> | null; fired: boolean };
+const tabPress = new Map<number, TabPress>();
+/** Pattern pads tapped during this visit to the PATTERN tab (the chain being built). */
+let patVisit: number[] = [];
+let visitN = 0;
+
+const TAB_HOLD_MS = 450;
 const TAP_MS = 300;
 const STEP_TAP_MS = 350;
 const STEP_HOLD_MS = 450;
@@ -138,13 +146,7 @@ export const handlers: RouterHandlers = {
         padActions.set(pid, { t: 'note', sound, key: k });
         lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k, project.peek()).toUpperCase()}`);
       } else if (h.has('btn:fx')) {
-        if (k < FX_IDS.length) {
-          fxPad.value = k;
-          fxXY.value = [...FX_DEFAULT_XY[FX_IDS[k]!]];
-          fxPress(k, true);
-          padActions.set(pid, { t: 'fx', fx: k });
-          recordFxDown(pid, k, e.timeStamp);
-        } else padActions.set(pid, { t: 'none' });
+        fxDown(pid, k, e.timeStamp);
       } else if (h.has('fn:pattern')) {
         const d = chainDraft.peek();
         if (!d.includes(k)) chainDraft.value = [...d, k];
@@ -152,6 +154,11 @@ export const handlers: RouterHandlers = {
       } else if (h.has('fn:bpm')) {
         apply((p) => setVolume(p, (k + 1) / 16));
         lcdMessage(`VOL ${k + 1}`);
+        padActions.set(pid, { t: 'none' });
+      } else if (padMode.peek() === 'fx') {
+        fxDown(pid, k, e.timeStamp);
+      } else if (padMode.peek() === 'sound' || padMode.peek() === 'pattern') {
+        tabDown(pid, k, padMode.peek() as 'sound' | 'pattern');
         padActions.set(pid, { t: 'none' });
       } else if (writeMode.peek()) {
         stepDown(k, pid);
@@ -209,8 +216,15 @@ export const handlers: RouterHandlers = {
       } else if (a?.t === 'fx') {
         fxPress(a.fx, false);
         recordFxUp(pid);
-        if (fxPad.peek() === a.fx) fxPad.value = null;
+        if (fxPad.peek() === a.fx) {
+          // knobs follow the most recently pressed effect that is still held
+          const rest = [...padActions.values()].filter((x): x is { t: 'fx'; fx: number } => x.t === 'fx');
+          const prev = rest.at(-1)?.fx ?? null;
+          fxPad.value = prev;
+          if (prev !== null) fxXY.value = [...FX_DEFAULT_XY[FX_IDS[prev]!]];
+        }
       }
+      tabUp(pid, cancelled);
       stepUp(pid, cancelled);
       return;
     }
@@ -219,8 +233,8 @@ export const handlers: RouterHandlers = {
     if (id === 'fn:sample') for (const a of padActions.values()) if (a.t === 'sample') void endRecord();
     if (id === 'fn:pattern') commitChain(cancelled);
     if (f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) {
-      if (id === 'fn:sound') soundSheetOpen.value = true;
-      else if (id === 'fn:pattern') patternSheetOpen.value = true;
+      if (id === 'fn:sound') setPadMode('sound');
+      else if (id === 'fn:pattern') setPadMode('pattern');
       else if (id === 'fn:bpm') {
         setSettings({ metro: !settings.peek().metro });
         lcdMessage(settings.peek().metro ? 'METRO ON' : 'METRO OFF');
@@ -229,9 +243,11 @@ export const handlers: RouterHandlers = {
       else if (id === 'fn:erase') eraseSheetOpen.value = true;
     }
     if (id === 'btn:rec' && f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) toggleArm();
+    if (id === 'btn:fx' && f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) setPadMode('fx');
     // WRITE toggles on a tap; held with a pad it chose the write key instead.
     if (id === 'btn:write' && f && !cancelled && !f.used) {
       writeMode.value = !writeMode.peek();
+      if (writeMode.peek()) setPadMode('play');
       lcdMessage(writeMode.peek() ? 'WRITE ON' : 'WRITE OFF');
     }
   },
@@ -244,6 +260,9 @@ export const handlers: RouterHandlers = {
     for (const s of stepPress.values()) if (s.timer) clearTimeout(s.timer);
     stepPress.clear();
     heldStep.value = null;
+    for (const t of tabPress.values()) if (t.timer) clearTimeout(t.timer);
+    tabPress.clear();
+    padPopover.value = null;
     chainDraft.value = [];
     fxPad.value = null;
   },
@@ -255,6 +274,72 @@ onStep(({ step, pattern }) => {
   if (!f || f.used || performance.now() - f.t < TAP_MS || !heldControls.peek().has('fn:erase')) return;
   eraseLiveStep(pattern, step);
 });
+
+/** Tap a latching tab: switch to its mode, or back to play when it is already active. */
+export function setPadMode(m: PadMode): void {
+  const next = padMode.peek() === m ? 'play' : m;
+  padMode.value = next;
+  padPopover.value = null;
+  if (next === 'pattern') {
+    patVisit = [];
+    visitN++;
+  }
+}
+
+/** FX pad pressed (FX held, or the FX tab): effect on while held; knobs follow the latest. */
+function fxDown(pid: number, k: number, ts: number): void {
+  if (k < FX_DEFS.length && k < FX_IDS.length) {
+    fxPad.value = k;
+    fxXY.value = [...FX_DEFAULT_XY[FX_IDS[k]!]];
+    fxPress(k, true);
+    padActions.set(pid, { t: 'fx', fx: k });
+    recordFxDown(pid, k, ts);
+  } else padActions.set(pid, { t: 'none' });
+}
+
+function tabDown(pid: number, k: number, mode: 'sound' | 'pattern'): void {
+  padPopover.value = null;
+  const tp: TabPress = { mode, k, timer: null, fired: false };
+  tp.timer = setTimeout(() => {
+    tp.timer = null;
+    tp.fired = true;
+    padPopover.value = { kind: mode, k };
+  }, TAB_HOLD_MS);
+  tabPress.set(pid, tp);
+}
+
+function tabUp(pid: number, cancelled: boolean): void {
+  const tp = tabPress.get(pid);
+  if (!tp) return;
+  tabPress.delete(pid);
+  if (tp.timer) clearTimeout(tp.timer);
+  if (cancelled || tp.fired) return;
+  if (tp.mode === 'sound') {
+    selectSound(tp.k);
+    audition(tp.k, 0);
+    padMode.value = 'play';
+  } else if (!patVisit.length) {
+    patVisit = [tp.k];
+    setChainAndEdit([tp.k]);
+  } else {
+    patVisit = [...patVisit, tp.k];
+    const chain = patVisit;
+    apply((p) => setChain(p, chain), { merge: `chain:${visitN}` });
+    lcdMessage(chainText(chain));
+  }
+}
+
+/** Popover actions. */
+export function popoverClearSound(k: number): void {
+  const pat = targetPattern();
+  apply((p) => clearLane(p, pat, k));
+  lcdMessage(`CLEAR S${String(k + 1).padStart(2, '0')} P${String(pat + 1).padStart(2, '0')}`);
+}
+export function popoverEditSample(k: number): void {
+  selectedSound.value = k;
+  sampleSheetOpen.value = true;
+  padMode.value = 'play';
+}
 
 function commitChain(cancelled: boolean): void {
   const d = chainDraft.peek();

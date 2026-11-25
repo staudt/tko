@@ -2,8 +2,6 @@ import { useEffect, useRef } from 'preact/hooks';
 import { Lcd } from '../lcd/Lcd';
 import { Knob } from '../ui/Knob';
 import { FnButton, Icon, PadGrid } from '../ui/Controls';
-import { SoundSheet } from '../ui/SoundSheet';
-import { PatternSheet } from '../ui/PatternSheet';
 import { EraseSheet } from '../ui/EraseSheet';
 import { StepSheet } from '../ui/StepSheet';
 import { startPlayhead } from '../ui/playhead';
@@ -14,7 +12,7 @@ import { handlers } from '../ui/controls';
 import { SettingsSheet } from '../ui/SettingsSheet';
 import { TempoPill } from '../ui/TempoPill';
 import { settings } from '../ui/settings';
-import { heldControls, locked, sampling, selectedSound, settingsOpen } from '../ui/state';
+import { heldControls, locked, padMode, sampling, selectedSound, settingsOpen } from '../ui/state';
 import { SampleSheet } from '../ui/SampleSheet';
 import { Toast } from '../ui/toast';
 
@@ -67,15 +65,13 @@ export function Instrument() {
       <Lcd />
       <KnobRow />
       <div class="fnrow">
-        <FnButton id="fn:sound" label="SOUND" icon="sound" />
-        <FnButton id="fn:pattern" label="PATTERN" icon="pattern" />
+        <FnButton id="fn:sound" label="SOUND" icon="sound" variant="tab" lit={padMode.value === 'sound' || heldControls.value.has('fn:sound')} />
+        <FnButton id="fn:pattern" label="PATTERN" icon="pattern" variant="tab" lit={padMode.value === 'pattern' || heldControls.value.has('fn:pattern')} />
         <FnButton id="fn:bpm" label="BPM" icon="bpm" lit={settings.value.metro || heldControls.value.has('fn:bpm')} />
         <FnButton id="fn:sample" label="SAMPLE" icon="sample" variant={sampling.value ? 'sample recording' : 'sample'} lit={sampling.value || heldControls.value.has('fn:sample')} />
         <FnButton id="fn:erase" label="ERASE" icon="erase" variant="erase" />
       </div>
       <PadGrid />
-      <SoundSheet />
-      <PatternSheet />
       <EraseSheet />
       <StepSheet />
       <SampleSheet />

@@ -47,3 +47,21 @@ export async function startEngine(page: Page): Promise<void> {
   await t.up(0);
   await page.waitForFunction(() => (window as unknown as { __tko?: { commands: Cmd[] } }).__tko?.commands.some((x) => x.type === 'tempo'), null, { timeout: 20_000 });
 }
+
+/** Tap (down, short wait, up) the centre of a control with finger `id`. */
+export async function tapAt(t: Touch, page: Page, loc: Locator, holdMs = 40, id = 9): Promise<void> {
+  const c = await center(loc);
+  await t.down(id, c.x, c.y);
+  await page.waitForTimeout(holdMs);
+  await t.up(id);
+}
+/** Long-press (past the 450 ms threshold) and lift. */
+export const longPress = (t: Touch, page: Page, loc: Locator, id = 9) => tapAt(t, page, loc, 650, id);
+/** Drag a knob upwards by `px` with a finger. */
+export async function dragKnob(t: Touch, page: Page, loc: Locator, px: number, id = 8): Promise<void> {
+  const c = await center(loc);
+  await t.down(id, c.x, c.y);
+  const steps = 10;
+  for (let i = 1; i <= steps; i++) await t.move(id, c.x, c.y - (px * i) / steps);
+  await t.up(id);
+}

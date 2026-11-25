@@ -3,9 +3,11 @@ import { apply, project, updateSound } from '../store/project';
 import { fxKnob } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, lastKeyVer, recArmed, selectedSound, writeMode } from './state';
+import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, lastKeyVer, padMode, recArmed, selectedSound, writeMode } from './state';
+import { KEY_NAMES, SCALES, SCALE_IDS } from '../store/scales';
+import { lcdMessage } from '../lcd/message';
 import { playing } from '../engine/host';
-import { getStep, setLock, setStep } from '../store/edit';
+import { getStep, setKey, setLock, setScale, setStep } from '../store/edit';
 import { knobToPitch, knobToTone, pitchToKnob, toneToKnob } from './stepHelpers';
 import { markUsed, setBpm, setSwing } from './controls';
 
@@ -30,6 +32,9 @@ export function hintText(): string {
   if (mode === 'bpm') return 'A: tempo · B: swing · pad: volume';
   if (mode === 'trim') return project.value.sounds[selectedSound.value]?.kind === 'drum' ? 'A: volume · pad: select sound' : 'A: trim start · B: trim end · pad: select';
   if (mode === 'lock') return 'A: lock pitch · B: lock tone · tap: length';
+  if (mode === 'tune') return 'tap: select sound · hold: actions · knobs: key/scale';
+  if (padMode.value === 'pattern') return 'tap: pattern · more taps: chain · hold: copy/paste';
+  if (padMode.value === 'fx') return 'hold pads: effects · knobs: shape';
   if (recArmed.value && playing.value) return 'FX+pad: record fx · hold ERASE: erase';
   if (writeMode.value) return 'tap: step · hold+knob: lock · ERASE+step: clear';
   return 'hold SAMPLE+pad: record · ERASE+pad: clear';
@@ -101,6 +106,44 @@ export function knobSpecs(): KnobSpecs {
       title: 'BPM',
       a: { label: 'Tempo', text: `TEMPO ${p.bpm}`, value: (p.bpm - 40) / 200, def: 0.4, onChange: (v, f) => (f && markUsed(), setBpm(Math.round(40 + clamp01(v) * 200))) },
       b: { label: 'Swing', text: `SWING ${p.swing}%`, value: (p.swing - 50) / 25, def: 0, onChange: (v, f) => (f && markUsed(), setSwing(Math.round(50 + clamp01(v) * 25))) },
+    };
+  }
+  if (mode === 'tune') {
+    const nScales = SCALE_IDS.length;
+    const si = Math.max(0, SCALE_IDS.indexOf(p.scale));
+    const shortScale = (id: (typeof SCALE_IDS)[number]) => SCALES[id].name.replace('Chromatic', 'Chrom').replace('Major pentatonic', 'Maj pent').replace('Minor pentatonic', 'Min pent');
+    const say = () => {
+      const q = project.peek();
+      lcdMessage(`KEY ${KEY_NAMES[q.key]} ${shortScale(q.scale)}`);
+    };
+    return {
+      title: `KEY ${KEY_NAMES[p.key]} · ${shortScale(p.scale)}`.toUpperCase(),
+      a: {
+        label: 'Key',
+        text: `KEY ${KEY_NAMES[p.key]}`,
+        value: p.key / 11,
+        def: 0,
+        onChange: (v, f) => {
+          const mk = key('A', f, 100);
+          const k = Math.round(clamp01(v) * 11);
+          if (k === project.peek().key) return;
+          apply((q) => setKey(q, k), { merge: mk });
+          say();
+        },
+      },
+      b: {
+        label: 'Scale',
+        text: `SCALE ${shortScale(p.scale)}`.toUpperCase(),
+        value: si / (nScales - 1),
+        def: 0,
+        onChange: (v, f) => {
+          const mk = key('B', f, 100);
+          const id = SCALE_IDS[Math.round(clamp01(v) * (nScales - 1))]!;
+          if (id === project.peek().scale) return;
+          apply((q) => setScale(q, id), { merge: mk });
+          say();
+        },
+      },
     };
   }
   if (mode === 'trim' && s) {

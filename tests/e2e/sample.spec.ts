@@ -22,7 +22,7 @@ async function selectSound(page: Page, n: number) {
   await t.down(7, c.x, c.y);
   await page.waitForTimeout(60);
   await t.up(7);
-  await page.getByTestId(`card-${n}`).tap();
+  await page.getByTestId(`pad-${n}`).tap();
   await expect(page.getByTestId('lcd')).toHaveAttribute('data-snd', String(n));
 }
 const importWav = async (page: Page) => {

@@ -14,6 +14,11 @@ export const FX_IDS = [
   'reverse',
   'reverbThrow',
   'delayThrow',
+  // Appended later (recorded patterns store indices): never reorder the ones above.
+  'stutter8T',
+  'scratch',
+  'octave',
+  'wobble',
 ] as const;
 export type FxId = (typeof FX_IDS)[number];
 
@@ -25,13 +30,17 @@ export const FX_DEFS: readonly FxDef[] = [
   { id: 'stutter16', label: 'Stutter', sub: '1/16', x: 'length', y: 'feedback', snaps: true },
   { id: 'stutter32', label: 'Stutter', sub: '1/32', x: 'length', y: 'feedback', snaps: true },
   { id: 'tapeStop', label: 'Tape stop', sub: 'slow', x: 'speed', y: 'pitch', snaps: false },
-  { id: 'lowSweep', label: 'Low sweep', sub: 'filter', x: 'cutoff', y: 'resonance', snaps: false },
-  { id: 'highSweep', label: 'High sweep', sub: 'filter', x: 'cutoff', y: 'resonance', snaps: false },
+  { id: 'lowSweep', label: 'LP sweep', sub: 'filter', x: 'cutoff', y: 'resonance', snaps: false },
+  { id: 'highSweep', label: 'HP sweep', sub: 'filter', x: 'cutoff', y: 'resonance', snaps: false },
   { id: 'lofi', label: 'Lo-fi', sub: 'crush', x: 'bits', y: 'rate', snaps: false },
   { id: 'gate', label: 'Gate', sub: '1/16', x: 'rate', y: 'depth', snaps: true },
   { id: 'reverse', label: 'Reverse', sub: '1 beat', x: 'length', y: 'mix', snaps: true },
   { id: 'reverbThrow', label: 'Reverb', sub: 'throw', x: 'size', y: 'mix', snaps: false },
   { id: 'delayThrow', label: 'Delay', sub: 'throw', x: 'time', y: 'feedback', snaps: false },
+  { id: 'stutter8T', label: 'Stutter', sub: '1/8T', x: 'length', y: 'feedback', snaps: true },
+  { id: 'scratch', label: 'Scratch', sub: 'vinyl', x: 'speed', y: 'depth', snaps: true },
+  { id: 'octave', label: 'Octave', sub: '±12', x: 'down/up', y: 'mix', snaps: false },
+  { id: 'wobble', label: 'Wobble', sub: 'LFO', x: 'rate', y: 'depth', snaps: true },
 ];
 
 export const fxIndex = (id: FxId): number => FX_IDS.indexOf(id);
@@ -50,4 +59,8 @@ export const FX_DEFAULT_XY: Record<FxId, [number, number]> = {
   reverse: [0, 1],
   reverbThrow: [0.6, 0.7],
   delayThrow: [0.5, 0.5],
+  stutter8T: [0, 0],
+  scratch: [0.3, 0.6],
+  octave: [1, 1],
+  wobble: [0.33, 0.7],
 };

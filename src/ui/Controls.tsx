@@ -2,8 +2,10 @@ import type { ComponentChildren } from 'preact';
 import { FX_DEFS } from '../engine/fx/ids';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode, eraseFlash, sampling, samplingSlot } from './state';
-import { getStep, patternIsEmpty } from '../store/edit';
+import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, padMode, padPopover, queuedPattern, selectedSound, recArmed, writeMode, eraseFlash, sampling, samplingSlot } from './state';
+import { getStep, patternDensity, patternIsEmpty } from '../store/edit';
+import type { Pattern } from '../store/types';
+import { PadPopover } from './PadPopover';
 import { targetPattern } from './erase';
 import { hasExtras, isTonic, keyLabel, shortHit, stepLabel } from './stepHelpers';
 
@@ -40,6 +42,25 @@ export function FnButton(props: { id: string; label: string; icon: string; varia
   );
 }
 
+const densityCache = new WeakMap<Pattern, number[]>();
+const density = (p: Pattern): number[] => {
+  let d = densityCache.get(p);
+  if (!d) densityCache.set(p, (d = patternDensity(p)));
+  return d;
+};
+/** 16-column step-density bar graph of a pattern (column height = how many sounds hit that step). */
+function Bars({ pattern }: { pattern: Pattern | undefined }) {
+  const d = pattern ? density(pattern) : [];
+  return (
+    <span class="bars" aria-hidden="true">
+      {Array.from({ length: 16 }, (_, i) => {
+        const n = d[i] ?? 0;
+        return <i key={i} class={n ? 'hit' : ''} style={{ height: n ? `${Math.min(100, 30 + n * 20)}%` : '12%' }} />;
+      })}
+    </span>
+  );
+}
+
 const shortName = (n: string) => n.split(' ')[0]!;
 
 export function Pad({ k }: { k: number }) {
@@ -50,11 +71,17 @@ export function Pad({ k }: { k: number }) {
   const eraseWrite = held.has('fn:erase') && writeMode.value;
   const has = (id: string) => !eraseMode && !eraseWrite && held.has(id);
   const sampleMode = has('fn:sample') || sampling.value;
-  const soundMode = !sampleMode && has('fn:sound');
-  const fxMode = !soundMode && has('btn:fx');
-  const patMode = !soundMode && !fxMode && has('fn:pattern');
-  const bpmMode = !soundMode && !fxMode && !patMode && has('fn:bpm');
-  const keyPick = !soundMode && !fxMode && !patMode && !bpmMode && has('btn:write');
+  const tab = padMode.value;
+  const heldSound = !sampleMode && has('fn:sound');
+  const heldFx = !heldSound && has('btn:fx');
+  const heldPat = !heldSound && !heldFx && has('fn:pattern');
+  const bpmMode = !heldSound && !heldFx && !heldPat && has('fn:bpm');
+  const keyPick = !heldSound && !heldFx && !heldPat && !bpmMode && has('btn:write');
+  // a latched tab shows when no hold-combo overrides it
+  const tabbed = !sampleMode && !eraseMode && !eraseWrite && !heldSound && !heldFx && !heldPat && !bpmMode && !keyPick;
+  const soundMode = heldSound || (tabbed && tab === 'sound');
+  const fxMode = !soundMode && (heldFx || (tabbed && tab === 'fx'));
+  const patMode = !soundMode && !fxMode && (heldPat || (tabbed && tab === 'pattern'));
   const writing = !keyPick && !soundMode && !fxMode && !patMode && !bpmMode && !eraseMode && writeMode.value;
   const pressed = held.has(`pad:${k}`);
   let lit = false;
@@ -76,7 +103,7 @@ export function Pad({ k }: { k: number }) {
     lit = k === sel;
     label = shortName(sounds[k]?.name ?? '');
     sub = k < 8 ? 'melodic' : 'drum';
-    dot = !!project.value.patterns[editPattern.value]?.lanes[k]?.some((x) => x);
+    dot = !!project.value.patterns[targetPattern(true)]?.lanes[k]?.some((x) => x);
   } else if (fxMode) {
     const d = FX_DEFS[k];
     label = d ? d.label : '—';
@@ -91,7 +118,11 @@ export function Pad({ k }: { k: number }) {
     if (audPattern.value === k) cls += ' pulse';
     if (queuedPattern.value === k) cls += ' queued';
     const pos = draft.length ? draft.indexOf(k) : chain.indexOf(k);
-    if (pos >= 0 && (draft.length || chain.length > 1)) sub = `#${pos + 1}`;
+    if (pos >= 0 && (draft.length || chain.length > 1)) {
+      const src = draft.length ? draft : chain;
+      sub = '#' + src.flatMap((x, i) => (x === k ? [i + 1] : [])).slice(0, 3).join('·');
+    }
+    if (queuedPattern.value === k) sub = sub ? `${sub} next` : 'next';
   } else if (bpmMode) {
     const lvl = Math.round(project.value.volume * 16);
     lit = k + 1 <= lvl;
@@ -131,12 +162,13 @@ export function Pad({ k }: { k: number }) {
       <span class="num">{k + 1}</span>
       {label && <span class="lbl">{label}</span>}
       {sub && <span class="sub">{sub}</span>}
+      {patMode && <Bars pattern={project.value.patterns[k]} />}
     </div>
   );
 }
 
 export function PadGrid() {
-  const soundMode = heldControls.value.has('fn:sound') || heldControls.value.has('fn:sample') || (heldControls.value.has('fn:erase') && !writeMode.value);
+  const soundMode = padMode.value === 'sound' || heldControls.value.has('fn:sound') || heldControls.value.has('fn:sample') || (heldControls.value.has('fn:erase') && !writeMode.value);
   const write = writeMode.value;
   return (
     <div class="pads">
@@ -149,11 +181,12 @@ export function PadGrid() {
       {Array.from({ length: 16 }, (_, k) => (
         <Pad key={k} k={k} />
       ))}
+      {padPopover.value && <PadPopover />}
       <div class="side" style={{ gridColumn: 6, gridRow: 1 }}>
         <FnButton id="btn:rec" label="REC" icon="rec" variant="rec" lit={recArmed.value || heldControls.value.has('btn:rec')} />
       </div>
       <div class="side" style={{ gridColumn: 6, gridRow: 2 }}>
-        <FnButton id="btn:fx" label="FX" icon="fx" variant="fx" />
+        <FnButton id="btn:fx" label="FX" icon="fx" variant="fx tab" lit={padMode.value === 'fx' || heldControls.value.has('btn:fx')} />
       </div>
       <div class="side" style={{ gridColumn: 6, gridRow: 3 }}>
         <FnButton id="btn:play" label="PLAY" icon="play" lit={playing.value} />

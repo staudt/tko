@@ -26,7 +26,17 @@ const GATE = I('gate');
 const REVERSE = I('reverse');
 const REV_THROW = I('reverbThrow');
 const DEL_THROW = I('delayThrow');
-const STUTTER_STEPS = [4, 2, 1, 0.5]; // 1/4, 1/8, 1/16, 1/32 in 16th steps
+const STUT8T = I('stutter8T');
+const SCRATCH = I('scratch');
+const OCTAVE = I('octave');
+const WOBBLE = I('wobble');
+const STUTTER_STEPS = [4, 2, 1, 0.5, 4 / 3]; // 1/4, 1/8, 1/16, 1/32, 1/8T in 16th steps
+const WOBBLE_STEPS = [4, 2, 4 / 3, 1]; // 1/4, 1/8, 1/8T, 1/16 per LFO cycle
+const OCT_GRAIN_S = 0.05;
+const TWO_PI = Math.PI * 2;
+/** Stutter division index (0..4) of an effect id, or -1. */
+const stutDivOf = (fx: number): number => (fx >= STUTTER0 && fx < STUTTER0 + 4 ? fx - STUTTER0 : fx === STUT8T ? 4 : -1);
+const stutFxOf = (div: number): number => (div < 4 ? STUTTER0 + div : STUT8T);
 
 export const DEFAULT_REVERB_S = 2.2;
 export const DEFAULT_DELAY_STEPS = 3; // dotted 1/8
@@ -60,6 +70,20 @@ export class PunchChain {
   private stutWritten = 0;
   private stutGain = 1;
 
+  // Scratch: lag (samples behind the write head) of the read pointer and the LFO phase.
+  private scrLag = 0;
+  private scrPh = 0;
+
+  // Octave: grain phases (0..1) of the up and down shifters and the up/down crossfade weight.
+  private octUpPh = 0;
+  private octDnPh = 0;
+  private octW = 1;
+  private readonly octGrain: number;
+
+  // Wobble: filters per channel.
+  private readonly wobL = new Svf();
+  private readonly wobR = new Svf();
+
   // Tape stop.
   private readonly tapeL: Float32Array;
   private readonly tapeR: Float32Array;
@@ -90,6 +114,7 @@ export class PunchChain {
 
   constructor(sampleRate: number) {
     this.sr = sampleRate;
+    this.octGrain = Math.round(OCT_GRAIN_S * sampleRate);
     this.rampInc = 1 / (RAMP_S * sampleRate);
     this.gateK = 1 - Math.exp(-1 / (0.001 * sampleRate)); // edges reach 50 % ~0.7 ms after the grid
     this.histL = new Float32Array(Math.ceil(HIST_S * sampleRate));
@@ -124,19 +149,18 @@ export class PunchChain {
 
   /** Press or release. `at` is the absolute frame where a press takes effect. */
   press(fx: number, on: boolean, at: number): void {
-    if (fx >= STUTTER0 && fx < STUTTER0 + 4) {
+    const div = stutDivOf(fx);
+    if (div >= 0) {
       // One stutter unit: a new division restarts it; releasing another division does nothing.
-      const div = fx - STUTTER0;
       if (on) {
-        for (let k = STUTTER0; k < STUTTER0 + 4; k++) if (k !== fx) this.on[k] = 0;
+        for (let d = 0; d < 5; d++) this.on[stutFxOf(d)] = 0;
         this.stutDiv = div;
         this.started[STUTTER0] = 0;
         this.on[STUTTER0] = 1;
         this.startAt[STUTTER0] = at;
         this.on[fx] = 1;
       } else if (this.stutDiv === div) {
-        this.on[STUTTER0] = 0;
-        for (let k = STUTTER0; k < STUTTER0 + 4; k++) this.on[k] = 0;
+        for (let d = 0; d < 5; d++) this.on[stutFxOf(d)] = 0;
       }
       return;
     }
@@ -150,7 +174,7 @@ export class PunchChain {
   setXY(fx: number, x: number, y: number, immediate = false): void {
     const cx = Math.min(1, Math.max(0, x));
     const cy = Math.min(1, Math.max(0, y));
-    const k = fx >= STUTTER0 && fx < STUTTER0 + 4 ? STUTTER0 : fx;
+    const k = stutDivOf(fx) >= 0 ? STUTTER0 : fx;
     this.tx[k] = cx;
     this.ty[k] = cy;
     if (immediate) {
@@ -189,7 +213,10 @@ export class PunchChain {
 
     if (this.active(STUTTER0)) this.stutter(l, r, n, f0, sps);
     if (this.active(REVERSE)) this.reverse(l, r, n, f0, sps, histStart);
+    if (this.active(SCRATCH)) this.scratch(l, r, n, f0, sps, histStart);
+    if (this.active(OCTAVE)) this.octave(l, r, n, f0, histStart);
     if (this.active(TAPE)) this.tape(l, r, n, f0);
+    if (this.active(WOBBLE)) this.wobble(l, r, n, f0, sps);
     if (this.active(GATE)) this.gate(l, r, n, f0, sps);
     if (this.active(LOFI)) this.lofi(l, r, n, f0);
     if (this.active(LOW)) this.sweep(l, r, n, f0, LOW);
@@ -306,6 +333,152 @@ export class PunchChain {
       l[i] = dl + (wl - dl) * lv;
       r[i] = dr + (wr - dr) * lv;
     }
+    if (this.level[k] === 0 && this.on[k] === 0) this.started[k] = 0;
+  }
+
+  /** Vinyl scratch: reads the dry history about a beat back at a rate swinging between forward and backward. */
+  private scratch(l: Float32Array, r: Float32Array, n: number, f0: number, sps: number, histStart: number): void {
+    const k = SCRATCH;
+    const hn = this.histL.length;
+    const base = Math.min(hn - 512, Math.max(256, 4 * sps));
+    const periodSteps = 2 * Math.pow(0.25, this.x[k]!); // 1/8 note .. 1/32 note per cycle
+    const dPh = TWO_PI / (periodSteps * sps);
+    const depth = 0.5 + this.y[k]! * 2;
+    // Pulls the pointer back toward the base lag so a long hold never runs into the overwritten part of the ring.
+    const pull = 1 / (0.1 * this.sr);
+    for (let i = 0; i < n; i++) {
+      const f = f0 + i;
+      if (this.begins(k, f)) {
+        this.scrLag = base;
+        this.scrPh = 0;
+      }
+      const lv = this.step(k, f);
+      if (lv === 0) continue;
+      const rate = depth * Math.cos(this.scrPh) + Math.max(0, this.scrLag - base) * pull;
+      this.scrPh += dPh;
+      if (this.scrPh >= TWO_PI) this.scrPh -= TWO_PI;
+      let lag = this.scrLag + 1 - rate;
+      if (lag < 2) lag = 2;
+      else if (lag > hn - 4) lag = hn - 4;
+      this.scrLag = lag;
+      let p = histStart + i - lag;
+      while (p < 0) p += hn;
+      const i0 = Math.floor(p);
+      const fr = p - i0;
+      const a = i0 % hn;
+      const b = a + 1 === hn ? 0 : a + 1;
+      const wl = this.histL[a]! + (this.histL[b]! - this.histL[a]!) * fr;
+      const wr = this.histR[a]! + (this.histR[b]! - this.histR[a]!) * fr;
+      const dl = l[i]!;
+      const dr = r[i]!;
+      l[i] = dl + (wl - dl) * lv;
+      r[i] = dr + (wr - dr) * lv;
+    }
+    if (this.level[k] === 0 && this.on[k] === 0) this.started[k] = 0;
+  }
+
+  /** Reads the dry history `lag` samples behind sample index `pos` (linear interpolation). Returns via the out fields. */
+  private rdL = 0;
+  private rdR = 0;
+  private readHist(pos: number, lag: number): void {
+    const hn = this.histL.length;
+    let p = pos - lag;
+    while (p < 0) p += hn;
+    const i0 = Math.floor(p);
+    const fr = p - i0;
+    const a = i0 % hn;
+    const b = a + 1 === hn ? 0 : a + 1;
+    this.rdL = this.histL[a]! + (this.histL[b]! - this.histL[a]!) * fr;
+    this.rdR = this.histR[a]! + (this.histR[b]! - this.histR[a]!) * fr;
+  }
+
+  /** Octave: two crossfaded grains per direction read the history at ratio 2 (up) or 0.5 (down). */
+  private octave(l: Float32Array, r: Float32Array, n: number, f0: number, histStart: number): void {
+    const k = OCTAVE;
+        const W = this.octGrain;
+    const mix = this.y[k]!;
+    const wantUp = this.x[k]! >= 0.5 ? 1 : 0;
+    const swK = 1 - Math.exp(-1 / (0.02 * this.sr));
+    const upInc = 1 / W; // lag W..0 shrinks by one sample per sample: reads at ratio 2
+    const dnInc = 0.5 / W; // lag 0..W grows by half a sample per sample: reads at ratio 0.5
+    for (let i = 0; i < n; i++) {
+      const f = f0 + i;
+      if (this.begins(k, f)) {
+        this.octUpPh = 0;
+        this.octDnPh = 0;
+        this.octW = wantUp;
+      }
+      const lv = this.step(k, f);
+      if (lv === 0) continue;
+      this.octW += (wantUp - this.octW) * swK;
+      const wu = this.octW;
+      const pos = histStart + i;
+      let sl = 0;
+      let sr = 0;
+      if (wu > 1e-4) {
+        const p1 = this.octUpPh;
+        const p2 = p1 >= 0.5 ? p1 - 0.5 : p1 + 0.5;
+        const s1 = Math.sin(Math.PI * p1);
+        const s2 = Math.sin(Math.PI * p2);
+        this.readHist(pos, 2 + (1 - p1) * W);
+        sl += this.rdL * s1 * s1 * wu;
+        sr += this.rdR * s1 * s1 * wu;
+        this.readHist(pos, 2 + (1 - p2) * W);
+        sl += this.rdL * s2 * s2 * wu;
+        sr += this.rdR * s2 * s2 * wu;
+      }
+      if (wu < 1 - 1e-4) {
+        const p1 = this.octDnPh;
+        const p2 = p1 >= 0.5 ? p1 - 0.5 : p1 + 0.5;
+        const s1 = Math.sin(Math.PI * p1);
+        const s2 = Math.sin(Math.PI * p2);
+        this.readHist(pos, 2 + p1 * W);
+        sl += this.rdL * s1 * s1 * (1 - wu);
+        sr += this.rdR * s1 * s1 * (1 - wu);
+        this.readHist(pos, 2 + p2 * W);
+        sl += this.rdL * s2 * s2 * (1 - wu);
+        sr += this.rdR * s2 * s2 * (1 - wu);
+      }
+      this.octUpPh += upInc;
+      if (this.octUpPh >= 1) this.octUpPh -= 1;
+      this.octDnPh += dnInc;
+      if (this.octDnPh >= 1) this.octDnPh -= 1;
+      const g = mix * lv;
+      const dl = l[i]!;
+      const dr = r[i]!;
+      l[i] = dl + (sl - dl) * g;
+      r[i] = dr + (sr - dr) * g;
+    }
+    if (this.level[k] === 0 && this.on[k] === 0) this.started[k] = 0;
+  }
+
+  /** Tempo-synced resonant low-pass wobble; the LFO phase restarts on press so it locks to the grid. */
+  private wobble(l: Float32Array, r: Float32Array, n: number, f0: number, sps: number): void {
+    const k = WOBBLE;
+    const period = WOBBLE_STEPS[Math.min(3, Math.floor(this.x[k]! * 4))]! * sps;
+    const depthOct = 0.2 + this.y[k]! * 2.46; // about 200 Hz .. 8 kHz around 1.27 kHz at full depth
+    for (let i = 0; i < n; i++) {
+      const f = f0 + i;
+      if (this.begins(k, f)) {
+        this.wobL.reset();
+        this.wobR.reset();
+      }
+      if ((i & 7) === 0) {
+        const ph = (((f - this.startAt[k]!) % period) + period) % period / period;
+        const lfo = 0.5 - 0.5 * Math.cos(TWO_PI * ph); // closed on the grid, opens mid-cycle
+        const fc = 1265 * Math.pow(2, (lfo * 2 - 1) * depthOct);
+        this.wobL.set(fc, 3.5, this.sr);
+        this.wobR.set(fc, 3.5, this.sr);
+      }
+      const lv = this.step(k, f);
+      if (lv === 0) continue;
+      this.wobL.tick(l[i]!);
+      this.wobR.tick(r[i]!);
+      l[i] = l[i]! + (this.wobL.low - l[i]!) * lv;
+      r[i] = r[i]! + (this.wobR.low - r[i]!) * lv;
+    }
+    this.wobL.flush();
+    this.wobR.flush();
     if (this.level[k] === 0 && this.on[k] === 0) this.started[k] = 0;
   }
 

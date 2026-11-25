@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, commands, startEngine, Touch } from './helpers';
+import { center, commands, longPress, startEngine, Touch } from './helpers';
 
 type Packed = { keys: ArrayLike<number>; lockA: ArrayLike<number>; len: ArrayLike<number> };
 /** The latest 'pattern' command for pattern `pat` (undefined if none). */
@@ -151,20 +151,65 @@ test.describe('sequencer (touch)', () => {
     await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
   });
 
-  test('pattern sheet: select, copy, paste, clear', async ({ page }) => {
+  test('PATTERN tab: tap pads 2, 4 -> chain [1,3]; tap PATTERN exits', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
+    await tapCtl(t, page, btn(page, 'PATTERN'));
+    await expect(btn(page, 'PATTERN')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('pad-2').locator('.bars i')).toHaveCount(16);
+    await tapCtl(t, page, page.getByTestId('pad-2'));
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([1]);
+    await expect(page.getByTestId('lcd')).toHaveAttribute('data-pat', '2');
+    await tapCtl(t, page, page.getByTestId('pad-4'));
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([1, 3]);
+    await expect(page.getByTestId('pad-2').locator('.sub')).toHaveText('#1');
+    await expect(page.getByTestId('pad-4').locator('.sub')).toHaveText('#2');
+    await expect(page.getByTestId('pad-2')).toHaveClass(/\blit\b/);
+    // still latched; tapping PATTERN leaves
+    await expect(btn(page, 'PATTERN')).toHaveAttribute('aria-pressed', 'true');
+    await tapCtl(t, page, btn(page, 'PATTERN'));
+    await expect(btn(page, 'PATTERN')).toHaveAttribute('aria-pressed', 'false');
+    // a new visit starts a fresh chain
+    await tapCtl(t, page, btn(page, 'PATTERN'));
+    await tapCtl(t, page, page.getByTestId('pad-7'));
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([6]);
+  });
+
+  test('PATTERN tab: long-press pad -> Copy, Paste, Clear popover', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    // pattern 1 (index 0): put a step on sound 1 step 1 and sound 1 step 5
     await tapCtl(t, page, btn(page, 'WRITE'));
     await tapCtl(t, page, page.getByTestId('pad-1'));
+    await tapCtl(t, page, page.getByTestId('pad-5'));
+    await tapCtl(t, page, btn(page, 'WRITE'));
     await tapCtl(t, page, btn(page, 'PATTERN'));
-    await expect(page.getByRole('dialog', { name: 'Patterns' })).toBeVisible();
-    await page.getByTestId('act-copy').tap();
-    await page.getByTestId('pcard-3').tap();
-    await expect(page.getByTestId('lcd')).toHaveAttribute('data-pat', '3');
-    await page.getByTestId('act-paste').tap();
-    await expect.poll(async () => (await lastPattern(page, 2))?.keys[0]).toBeGreaterThan(0);
-    await page.getByTestId('act-clear-pattern').tap();
-    await expect.poll(async () => (await lastPattern(page, 2))?.keys[0]).toBe(0);
+    await expect(page.getByTestId('pad-1').locator('.bars i.hit')).toHaveCount(2);
+    await expect(page.getByTestId('pad-2').locator('.bars i.hit')).toHaveCount(0);
+    // long-press pad 1 -> Copy; paste is disabled until then
+    await longPress(t, page, page.getByTestId('pad-1'));
+    await expect(page.getByTestId('popover')).toBeVisible();
+    await expect(page.getByTestId('pop-paste')).toBeDisabled();
+    await page.getByTestId('pop-copy').tap();
+    await expect(page.getByTestId('popover')).toHaveCount(0);
+    // long-press pad 5 -> Paste
+    await longPress(t, page, page.getByTestId('pad-5'));
+    await expect(page.getByTestId('pop-paste')).toBeEnabled();
+    await page.getByTestId('pop-paste').tap();
+    await expect.poll(async () => (await lastPattern(page, 4))?.keys[0]).toBeGreaterThan(0);
+    const src = (await lastPattern(page, 0))!;
+    const dst = (await lastPattern(page, 4))!;
+    expect(Array.from(dst.keys)).toEqual(Array.from(src.keys));
+    expect(Array.from(dst.lockA)).toEqual(Array.from(src.lockA));
+    expect(Array.from(dst.len)).toEqual(Array.from(src.len));
+    await expect(page.getByTestId('pad-5').locator('.bars i.hit')).toHaveCount(2);
+    // a long-press did not change the chain or select the pattern
+    expect((await commands(page)).filter((c) => c.type === 'chain').length).toBe(1);
+    // Clear
+    await longPress(t, page, page.getByTestId('pad-5'));
+    await page.getByTestId('pop-clear').tap();
+    await expect.poll(async () => (await lastPattern(page, 4))?.keys[0]).toBe(0);
+    await expect(page.getByTestId('pad-5').locator('.bars i.hit')).toHaveCount(0);
   });
 
   const tempos = async (page: Page) => (await commands(page)).filter((c) => c.type === 'tempo');
@@ -282,7 +327,6 @@ test.describe('sequencer layout', () => {
       expect(b.y + b.height).toBeLessThanOrEqual(640);
     }
     for (const [name, open] of [
-      ['Patterns', () => tapCtl(t, page, btn(page, 'PATTERN'))],
       ['Step', async () => {
         const p = await center(page.getByTestId('pad-1'));
         await t.down(1, p.x, p.y);
