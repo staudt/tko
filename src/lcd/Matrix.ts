@@ -7,6 +7,7 @@ import { editPattern, selectedSound, writeMode } from './../ui/state';
 import { currentMessage, extendMessage } from './message';
 import { textColumns } from './font';
 import { recFlash } from '../ui/recorder';
+import { HIST, MAX_RECORD_SECONDS, meter } from '../ui/sampling';
 
 export const COLS = 96;
 export const ROWS = 12;
@@ -52,7 +53,29 @@ function compose(dots: Uint8Array, now: number): string {
   return `${composeInner(dots, now, fl)}:f${fl}`;
 }
 
+/** Live recording: scrolling level history (centered bars), progress bar along the bottom, countdown in the last 3 s. */
+function composeMeter(dots: Uint8Array): string {
+  dots.fill(0);
+  const n = Math.min(meter.w, HIST);
+  for (let c = 0; c < n; c++) {
+    const v = meter.hist[(meter.w - n + c + HIST * 2) % HIST]!;
+    const h = Math.max(1, Math.round(Math.sqrt(v) * WAVE_ROWS));
+    const top = Math.floor((WAVE_ROWS - h) / 2);
+    const x = COLS - n + c;
+    for (let r = top; r < top + h; r++) dots[r * COLS + x] = 1;
+  }
+  const prog = Math.min(COLS, Math.round((meter.elapsed / MAX_RECORD_SECONDS) * COLS));
+  for (let c = 0; c < prog; c++) dots[(ROWS - 1) * COLS + c] = 1;
+  const left = MAX_RECORD_SECONDS - meter.elapsed;
+  if (left <= 3) {
+    const cols = textColumns(String(Math.max(1, Math.ceil(left))));
+    for (let c = 0; c < cols.length; c++) for (let r = 0; r < 7; r++) if (cols[c]! & (1 << r)) dots[(r + 1) * COLS + 2 + c] = 1;
+  }
+  return `rec:${meter.w}:${prog}:${Math.ceil(left)}`;
+}
+
 function composeInner(dots: Uint8Array, now: number, fl: number): string {
+  if (meter.active) return composeMeter(dots);
   dots.fill(0);
   const i = selectedSound.peek();
   const s = project.peek().sounds[i];

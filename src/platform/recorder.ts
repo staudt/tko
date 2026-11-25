@@ -1,9 +1,9 @@
 // Microphone recording: getUserMedia (all processing off) -> recorder worklet -> Float32Array.
 import recorderUrl from './recorderWorklet.ts?worker&url';
-import { ensureRunning } from './audio';
+import { ensureRunning, setAudioSession } from './audio';
 import { joinChunks } from './trim';
 
-export const MAX_RECORD_SECONDS = 30;
+export const MAX_RECORD_SECONDS = 12;
 
 export type MicErrorReason = 'denied' | 'nomic' | 'unsupported' | 'failed';
 export class MicError extends Error {
@@ -33,16 +33,21 @@ export type RecordingOptions = {
 /** Starts recording. Call from a user gesture. `onLimit` fires once at MAX_RECORD_SECONDS (the caller should stop). */
 export async function startRecording(onLimit?: () => void, opts: RecordingOptions = {}): Promise<RecordingSession> {
   if (!navigator.mediaDevices?.getUserMedia) throw new MicError('unsupported', 'Recording is not supported in this browser.');
+  setAudioSession('play-and-record');
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
   } catch (e) {
+    setAudioSession('playback');
     const name = (e as DOMException).name;
     if (name === 'NotAllowedError' || name === 'SecurityError') throw new MicError('denied', 'Microphone access was denied. Allow it in the browser settings and try again.');
     if (name === 'NotFoundError' || name === 'OverconstrainedError') throw new MicError('nomic', 'No microphone found.');
     throw new MicError('failed', 'Could not open the microphone.');
   }
-  const release = () => stream.getTracks().forEach((t) => t.stop());
+  const release = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    setAudioSession('playback'); // iOS: back to full-volume playback once the mic is closed
+  };
   try {
     const ctx = await ensureRunning();
     if (!moduleLoaded) {

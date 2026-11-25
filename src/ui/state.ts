@@ -72,3 +72,10 @@ export const knobMode = computed<KnobMode>(() => {
   if (writeMode.value && heldStep.value !== null && !h.has('fn:pattern')) return 'lock';
   return 'default';
 });
+
+/** Phase 4: the Sample sheet, and live microphone sampling (SAMPLE held + pad, or the sheet's Record). */
+export const sampleSheetOpen = signal(false);
+/** True while the microphone is recording (drives the chef's 'sing' pose and the pulsing SAMPLE button). */
+export const sampling = signal(false);
+/** Slot (0..15) being sampled into, else -1. */
+export const samplingSlot = signal(-1);

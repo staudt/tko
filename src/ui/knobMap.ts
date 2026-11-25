@@ -32,7 +32,7 @@ export function hintText(): string {
   if (mode === 'lock') return 'A: lock pitch · B: lock tone · tap: length';
   if (recArmed.value && playing.value) return 'FX+pad: record fx · hold ERASE: erase';
   if (writeMode.value) return 'tap: step · hold+knob: lock · ERASE+step: clear';
-  return 'hold ERASE+pad: clear sound';
+  return 'hold SAMPLE+pad: record · ERASE+pad: clear';
 }
 
 export function knobSpecs(): KnobSpecs {

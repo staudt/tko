@@ -119,11 +119,14 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await tapCtl(t, page, btn(page, 'PLAY'));
   });
 
-  test('SAMPLE button: tap and hold + pad show a message, no note', async ({ page }) => {
+  test('SAMPLE button: tap opens the sheet, hold + pad plays no note', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     const n0 = (await commands(page)).filter((c) => c.type === 'play' && c.on).length;
     await tapCtl(t, page, btn(page, 'SAMPLE'));
+    await expect(page.getByRole('dialog', { name: 'Sample' })).toBeVisible();
+    await page.locator('.sheet-wrap.open .backdrop').click({ position: { x: 5, y: 5 } });
+    await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
     const s = await center(btn(page, 'SAMPLE'));
     const p = await center(page.getByTestId('pad-4'));
     await t.down(1, s.x, s.y);

@@ -47,3 +47,11 @@
 - Tests: tempo pill + metronome tests in `tests/e2e/seq.spec.ts`. Screenshot `docs/screenshots/tempo-390x844.png`.
 
 **Try on the phone:** drag feel (px per BPM, dead zone), tap vs long-press timing on the pill, tap-tempo accuracy, drag while holding a pad.
+
+## Phase 4 — sampling UI (2026-11-25)
+- Hold SAMPLE + hold pad k records the mic into slot k (start on press, stop on release of either, 12 s cap). While recording: SAMPLE pulses red, the pad shows a red ring, the LCD strip shows a scrolling level meter + progress bar (countdown digits in the last 3 s), the chef sings (art trigger is the new `sampling` signal). Result: trim silence (20 ms pre-roll) -> normalize -1 dB -> fade -> saved as `Rec k`, one undo step, drum slots get auto slices, key 0 plays as confirmation, LCD "SAMPLED S10 2.3S". Mic errors show an LCD message and a toast and leave the slot unchanged.
+- Quick tap SAMPLE opens the Sample sheet (`src/ui/SampleSheet.tsx`, `Waveform.tsx`, logic `sampling.ts`): rename, Melodic/Drum toggle, waveform editor (trim handles, or 16 draggable numbered slice markers; tap to audition), Auto-slice, Equal slices, Normalize, Reverse, Crop to trim, Record (tap/tap, level meter), Import file, Resample 1/2/4 patterns (waits for the next pattern start while playing), Restore factory, Clear slot, memory gauge. Every edit is undoable; drags merge into one step. New `toast.tsx` for errors.
+- Superseded samples are not deleted from storage (undo can bring them back); the gauge counts only samples the project uses.
+- Tests: `tests/e2e/sample.spec.ts` (fake mic in `fakeMic.ts`, denied mic, import, restore, rename, trim drag, slices, 360x640 layout). Screenshots: `docs/screenshots/sample-{recording,sheet-melodic,sheet-drum}-390x844.png`.
+
+**Try on the phone:** the mic permission prompt on first use (the first hold may be cancelled by the prompt; hold again), record latency at the pad press, level meter responsiveness, trim of silence at start/end of your takes, auto-slice quality on real loops, handle drag feel and the 12 px marker grab radius on a small phone, resample timing against the pattern start, Bluetooth headset mic behaviour.

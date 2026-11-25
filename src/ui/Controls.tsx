@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { FX_DEFS } from '../engine/fx/ids';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode, eraseFlash } from './state';
+import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode, eraseFlash, sampling, samplingSlot } from './state';
 import { getStep, patternIsEmpty } from '../store/edit';
 import { targetPattern } from './erase';
 import { hasExtras, isTonic, keyLabel, shortHit, stepLabel } from './stepHelpers';
@@ -49,7 +49,8 @@ export function Pad({ k }: { k: number }) {
   const eraseMode = held.has('fn:erase') && !writeMode.value;
   const eraseWrite = held.has('fn:erase') && writeMode.value;
   const has = (id: string) => !eraseMode && !eraseWrite && held.has(id);
-  const soundMode = has('fn:sound');
+  const sampleMode = has('fn:sample') || sampling.value;
+  const soundMode = !sampleMode && has('fn:sound');
   const fxMode = !soundMode && has('btn:fx');
   const patMode = !soundMode && !fxMode && has('fn:pattern');
   const bpmMode = !soundMode && !fxMode && !patMode && has('fn:bpm');
@@ -61,7 +62,13 @@ export function Pad({ k }: { k: number }) {
   let sub = '';
   let dot = false;
   let cls = '';
-  if (eraseMode) {
+  if (sampleMode) {
+    lit = k === samplingSlot.value;
+    label = shortName(sounds[k]?.name ?? '');
+    sub = lit ? 'rec' : sounds[k]?.sampleId ? (k < 8 ? 'melodic' : 'drum') : 'empty';
+    dot = !!sounds[k]?.sampleId;
+    cls += lit ? ' sampling' : '';
+  } else if (eraseMode) {
     label = shortName(sounds[k]?.name ?? '');
     sub = k < 8 ? 'melodic' : 'drum';
     dot = !!project.value.patterns[targetPattern(true)]?.lanes[k]?.some((x) => x);
@@ -108,12 +115,12 @@ export function Pad({ k }: { k: number }) {
     if (isTonic(s, k, project.value)) cls += ' tonic';
     cls += ' m-play';
   }
-  const mode = eraseMode ? 'erase' : keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
+  const mode = sampleMode ? 'sound' : eraseMode ? 'erase' : keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
   const flashed = eraseFlash.value === k;
-  const on = (pressed && !eraseMode) || (soundMode && lit);
+  const on = (pressed && !eraseMode && !sampleMode) || ((soundMode || sampleMode) && lit);
   return (
     <div
-      class={`pad${on ? ' on' : ''}${lit && !soundMode ? ' lit' : ''}${mode ? ` m-${mode}` : ''}${cls}${flashed ? ' eflash' : ''}`}
+      class={`pad${on ? ' on' : ''}${lit && !soundMode && !sampleMode ? ' lit' : ''}${mode ? ` m-${mode}` : ''}${cls}${flashed ? ' eflash' : ''}`}
       data-ctl={`pad:${k}`}
       data-testid={`pad-${k + 1}`}
       role="button"
@@ -129,7 +136,7 @@ export function Pad({ k }: { k: number }) {
 }
 
 export function PadGrid() {
-  const soundMode = heldControls.value.has('fn:sound') || (heldControls.value.has('fn:erase') && !writeMode.value);
+  const soundMode = heldControls.value.has('fn:sound') || heldControls.value.has('fn:sample') || (heldControls.value.has('fn:erase') && !writeMode.value);
   const write = writeMode.value;
   return (
     <div class="pads">

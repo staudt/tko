@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audChainPos, audPattern, editPattern, heldControls, queuedPattern, recArmed, selectedSound } from '../ui/state';
+import { audChainPos, audPattern, editPattern, heldControls, queuedPattern, recArmed, sampling, selectedSound } from '../ui/state';
 import { Digits } from './SevenSeg';
 import { Art } from './Art';
 import { startMatrix } from './Matrix';
@@ -21,7 +21,7 @@ export function Lcd() {
   const idx = isPlaying && aud >= 0 ? audChainPos.value % chain.length : Math.max(0, chain.indexOf(patShown));
   const next = queued ?? (chain.length > 1 ? chain[(idx + 1) % chain.length]! : null);
   const armed = recArmed.value;
-  const rec = armed || heldControls.value.has('btn:rec');
+  const rec = armed || heldControls.value.has('btn:rec') || sampling.value;
   return (
     <div class="lcd" data-testid="lcd" data-snd={snd + 1} data-pat={patShown + 1} aria-label={`SND ${pad2(snd + 1)}`}>
       <div class="lcd-top">

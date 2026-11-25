@@ -14,7 +14,9 @@ import { handlers } from '../ui/controls';
 import { SettingsSheet } from '../ui/SettingsSheet';
 import { TempoPill } from '../ui/TempoPill';
 import { settings } from '../ui/settings';
-import { heldControls, locked, selectedSound, settingsOpen } from '../ui/state';
+import { heldControls, locked, sampling, selectedSound, settingsOpen } from '../ui/state';
+import { SampleSheet } from '../ui/SampleSheet';
+import { Toast } from '../ui/toast';
 
 export function KnobRow() {
   const { title, a, b } = knobSpecs();
@@ -68,7 +70,7 @@ export function Instrument() {
         <FnButton id="fn:sound" label="SOUND" icon="sound" />
         <FnButton id="fn:pattern" label="PATTERN" icon="pattern" />
         <FnButton id="fn:bpm" label="BPM" icon="bpm" lit={settings.value.metro || heldControls.value.has('fn:bpm')} />
-        <FnButton id="fn:sample" label="SAMPLE" icon="sample" />
+        <FnButton id="fn:sample" label="SAMPLE" icon="sample" variant={sampling.value ? 'sample recording' : 'sample'} lit={sampling.value || heldControls.value.has('fn:sample')} />
         <FnButton id="fn:erase" label="ERASE" icon="erase" variant="erase" />
       </div>
       <PadGrid />
@@ -76,7 +78,9 @@ export function Instrument() {
       <PatternSheet />
       <EraseSheet />
       <StepSheet />
+      <SampleSheet />
       <SettingsSheet />
+      <Toast />
       <div class="rotate">Rotate your phone</div>
     </div>
   );

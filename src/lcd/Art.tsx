@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { audibleStep, meters, playing } from '../engine/host';
 import { project } from '../store/project';
-import { fxPad, heldControls } from '../ui/state';
+import { fxPad, sampling } from '../ui/state';
 import { FX_IDS } from '../engine/fx/ids';
 import { KITCHEN_MARKUP, KITCHEN_VIEWBOX, SEG_IDS } from './art/kitchen';
 import { drawCat, drawPose, drumPose, type CatName, type PoseName } from './art/poses';
@@ -87,7 +87,7 @@ export function Art({ force }: { force?: ForcePose }) {
 
       const fx = meters.fx >= 0 ? meters.fx : (fxPad.peek() ?? -1);
       if (fx !== fxPrev) { fxPrev = fx; fxSince = now; }
-      const rec = heldControls.peek().has('btn:rec');
+      const rec = sampling.peek();
 
       if (meters.master > 0.35) awakeUntil = now + 2000;
       let cat: CatName = now < awakeUntil && playing.peek() ? 'awake' : 'sleep';

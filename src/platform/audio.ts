@@ -17,6 +17,7 @@ export function getAudioContext(): AudioContext {
 /** Call from inside a user-gesture handler (resume() / iOS unlock need the gesture). */
 export function ensureRunning(): Promise<AudioContext> {
   const c = getAudioContext();
+  setAudioSession('playback');
   if (!unlocked) {
     unlocked = true;
     try {
@@ -37,4 +38,19 @@ export function ensureRunning(): Promise<AudioContext> {
 export function onAudioStateChange(cb: () => void): () => void {
   listeners.add(cb);
   return () => listeners.delete(cb);
+}
+
+type AudioSessionNav = Navigator & { audioSession?: { type: string } };
+
+/**
+ * iOS (Safari 16.4+): 'playback' keeps sound on with the silent switch on; 'play-and-record' is
+ * needed while the mic is open. Other browsers: no-op.
+ */
+export function setAudioSession(type: 'playback' | 'play-and-record'): void {
+  try {
+    const s = (navigator as AudioSessionNav).audioSession;
+    if (s && s.type !== type) s.type = type;
+  } catch {
+    /* unsupported */
+  }
 }

@@ -300,3 +300,43 @@ input[type='range'].unset { opacity: 0.5; }
 .erasebtns { display: grid; gap: 10px; }
 .bigact { min-height: 56px; padding: 8px 14px; border-radius: 14px; background: #24262b; font: 700 15px var(--font-ui); text-align: center; }
 .bigact.armed { background: var(--rec); color: #1a0a06; }
+
+/* ---- Phase 4: sampling ---- */
+.btn.sample.recording::before { border-color: var(--rec); box-shadow: 0 0 12px var(--rec-glow), inset 0 0 8px rgba(255, 90, 60, 0.3); animation: pulse 0.7s ease-in-out infinite; }
+.btn.sample.recording .icon { filter: drop-shadow(0 0 4px var(--rec-glow)); }
+.pad.sampling::before { border-color: var(--rec); box-shadow: 0 0 14px var(--rec-glow), inset 0 0 10px rgba(255, 90, 60, 0.4); animation: pulse 0.7s ease-in-out infinite; }
+.pad.sampling .sub { color: var(--rec); }
+@media (prefers-reduced-motion: reduce) { .btn.sample.recording::before, .pad.sampling::before { animation: none; } }
+
+.toast { position: absolute; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translate(-50%, 10px); max-width: min(92%, 340px); padding: 10px 14px; border-radius: 12px; background: #2a1613; color: #ffd9cf; box-shadow: inset 0 0 0 1.5px var(--rec), 0 6px 20px rgba(0,0,0,0.5); font: 600 13px/1.35 var(--font-ui); text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.18s, transform 0.18s; z-index: 30; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.shead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.sname { min-height: 44px; border-radius: 12px; padding: 0 12px; background: #24262b; display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 700 15px var(--font-ui); text-align: left; min-width: 0; touch-action: auto; }
+.sname small { font: 500 10px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.nameinp { min-height: 44px; min-width: 0; border-radius: 12px; padding: 0 12px; background: #101113; color: var(--text); border: 1.5px solid var(--amber); font: 700 15px var(--font-ui); user-select: text; -webkit-user-select: text; }
+.seg2 { display: flex; gap: 6px; }
+.seg2 .mini { touch-action: auto; }
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tools .wide { touch-action: auto; padding: 0 8px; }
+.wide.recbtn { color: var(--rec); }
+.wide.recbtn.on { background: var(--rec); color: #1a0a06; }
+.wide.danger.armed { background: var(--rec); color: #1a0a06; }
+.filein { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.resrow { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.lvl, .gauge { display: grid; gap: 4px; }
+.lvl small, .gauge small { font: 500 11px var(--font-mono); color: var(--muted); }
+.lvl-bar { height: 8px; border-radius: 4px; background: #0c0d0f; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.6); }
+.lvl-bar i { display: block; height: 100%; width: 0; background: var(--amber); border-radius: 4px; }
+.gauge .lvl-bar i.full { background: var(--rec); }
+
+.wfwrap { padding: 0 22px; }
+.wf { position: relative; height: 120px; border-radius: 10px; background: #0e1012; box-shadow: inset 0 1px 3px rgba(0,0,0,0.7); touch-action: none; user-select: none; }
+.wf-cv { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 10px; }
+.wf-empty { position: absolute; inset: 0; display: grid; place-items: center; font: 500 12px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; pointer-events: none; }
+.wf-dim { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,0.62); pointer-events: none; }
+.wf-h { position: absolute; top: -4px; bottom: -4px; width: 44px; margin-left: -22px; display: grid; place-items: center; touch-action: none; cursor: ew-resize; z-index: 2; }
+.wf-h i { width: 4px; height: 100%; border-radius: 2px; background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); position: relative; }
+.wf-h i::after { content: ''; position: absolute; top: 50%; left: 50%; width: 18px; height: 30px; margin: -15px 0 0 -9px; border-radius: 8px; background: var(--amber); }
+.wf-m { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255, 243, 214, 0.7); pointer-events: none; }
+.wf-n { position: absolute; top: 3px; transform: translateX(-50%); font: 600 9px var(--font-mono); color: var(--muted); pointer-events: none; }

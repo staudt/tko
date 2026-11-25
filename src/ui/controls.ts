@@ -3,7 +3,7 @@ import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
 import { FX_DEFAULT_XY, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
+import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, sampleSheetOpen, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
 import { getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
@@ -11,10 +11,11 @@ import { chainText, lenBetween } from './stepHelpers';
 import { clearHits, recordFxDown, recordFxUp, recordHit, recordRelease, toggleArm } from './recorder';
 import { eraseBegin, eraseFxHeld, eraseLiveStep, eraseSoundHeld, eraseStepHeld } from './erase';
 import { onStep } from './stepTicker';
+import { beginRecord, endRecord, recordingSlot } from './sampling';
 import { setSettings, settings } from './settings';
 import { tempoDown, tempoMove, tempoReset, tempoUp } from './tempo';
 
-type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'none' };
+type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'sample'; slot: number } | { t: 'none' };
 const padActions = new Map<number, PadAction>();
 /** fn/FX buttons currently down: press time and whether anything else was touched meanwhile. */
 const fnDown = new Map<string, { t: number; used: boolean }>();
@@ -120,9 +121,12 @@ export const handlers: RouterHandlers = {
         // REC held + pad: nothing (no note, no erase).
         padActions.set(pid, { t: 'none' });
       } else if (h.has('fn:sample')) {
-        // Phase 4 will sample into the chosen pad here.
-        lcdMessage('SAMPLING SOON');
-        padActions.set(pid, { t: 'none' });
+        // SAMPLE held + pad k: record the mic into slot k until either is released.
+        if (recordingSlot() < 0) {
+          selectedSound.value = k;
+          padActions.set(pid, { t: 'sample', slot: k });
+          void beginRecord(k);
+        } else padActions.set(pid, { t: 'none' });
       } else if (h.has('fn:sound')) {
         selectSound(k);
         padActions.set(pid, { t: 'none' });
@@ -200,6 +204,8 @@ export const handlers: RouterHandlers = {
       if (a?.t === 'note') {
         playKey(a.sound, a.key, false);
         recordRelease(pid);
+      } else if (a?.t === 'sample') {
+        void endRecord();
       } else if (a?.t === 'fx') {
         fxPress(a.fx, false);
         recordFxUp(pid);
@@ -210,6 +216,7 @@ export const handlers: RouterHandlers = {
     }
     const f = fnDown.get(id);
     fnDown.delete(id);
+    if (id === 'fn:sample') for (const a of padActions.values()) if (a.t === 'sample') void endRecord();
     if (id === 'fn:pattern') commitChain(cancelled);
     if (f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) {
       if (id === 'fn:sound') soundSheetOpen.value = true;
@@ -218,7 +225,7 @@ export const handlers: RouterHandlers = {
         setSettings({ metro: !settings.peek().metro });
         lcdMessage(settings.peek().metro ? 'METRO ON' : 'METRO OFF');
       }
-      else if (id === 'fn:sample') lcdMessage('SAMPLING SOON');
+      else if (id === 'fn:sample') sampleSheetOpen.value = true;
       else if (id === 'fn:erase') eraseSheetOpen.value = true;
     }
     if (id === 'btn:rec' && f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) toggleArm();
@@ -229,6 +236,7 @@ export const handlers: RouterHandlers = {
     }
   },
   reset() {
+    void endRecord();
     tempoReset();
     padActions.clear();
     clearHits();
