@@ -111,6 +111,61 @@ test.describe('sampling', () => {
     await page.mouse.up();
     await expect.poll(async () => (await lastSound(page, 0))?.start ?? 0).toBeGreaterThan(0.2);
     await expect.poll(async () => (await lastSound(page, 0))?.end ?? 0).toBe(1);
+    const st = (await lastSound(page, 0))!.start;
+    await expect(page.getByTestId('wave')).toHaveAttribute('data-start', st.toFixed(4));
+    await expect(page.getByTestId('label-start')).not.toHaveText('0.00 s');
+    await expect(page.getByTestId('trim-info')).toContainText('trim');
+  });
+
+  test('trim handles are visible and clamp at the ends', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    const w = (await page.getByTestId('wave').boundingBox())!;
+    for (const id of ['handle-start', 'handle-end', 'label-start', 'label-end']) {
+      const b = (await page.getByTestId(id).boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    }
+    // drag the end handle far past the start handle: clamped, start untouched
+    const h = await center(page.getByTestId('handle-end'));
+    await page.mouse.move(h.x, h.y);
+    await page.mouse.down();
+    await page.mouse.move(h.x - w.width * 0.5, h.y, { steps: 6 });
+    await page.mouse.move(h.x - w.width * 1.2, h.y, { steps: 6 });
+    await expect(page.getByTestId('bubble')).toBeVisible();
+    await page.mouse.up();
+    const sp = (await lastSound(page, 0))!;
+    expect(sp.start).toBe(0);
+    expect(sp.end).toBeGreaterThan(0);
+    expect(sp.end).toBeLessThan(0.1);
+  });
+
+  test('play button toggles play / stop; import auto-plays', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    await page.getByTestId('import-file').setInputFiles({ name: 'long.wav', mimeType: 'audio/wav', buffer: makeWav(8, 4) });
+    const pb = page.getByTestId('play-btn');
+    await expect(pb).toHaveAttribute('data-playing', 'true', { timeout: 15_000 });
+    await pb.click();
+    await expect(pb).toHaveAttribute('data-playing', 'false');
+    await pb.click();
+    await expect(pb).toHaveAttribute('data-playing', 'true');
+    await expect(page.getByTestId('sample-len')).toContainText('8.0 s');
+    await pb.click();
+    await expect(pb).toHaveAttribute('data-playing', 'false');
+  });
+
+  test('recording in the sheet auto-plays the result', async ({ page }) => {
+    await installFakeMic(page);
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    await page.getByTestId('sample-record').click();
+    await page.waitForTimeout(1000);
+    await page.getByTestId('sample-record').click();
+    await expect.poll(async () => Number(await page.getByTestId('play-btn').getAttribute('data-previews')), { timeout: 15_000 }).toBeGreaterThan(0);
   });
 
   test('drum slot: auto / equal slices, marker drag', async ({ page }) => {

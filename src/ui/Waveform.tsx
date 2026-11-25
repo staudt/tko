@@ -1,13 +1,18 @@
 // Waveform editor for the Sample sheet: canvas waveform (DPR aware) with DOM handles on top.
-// Melodic: draggable trim start/end, tap = audition key 0. Drum: 16 numbered slices, drag a marker, tap a slice to audition it.
+// Melodic: draggable trim start/end bars (nearest handle wins), tap = preview from there to the trim end. Drum: 16 numbered slices, drag a marker, tap a slice to preview it.
+// Previews run outside the engine (src/ui/preview.ts), a moving playhead follows them.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { apply, project, updateSound } from '../store/project';
 import { getSample, type Sample } from '../store/samples';
 import { peaks } from '../dsp/peaks';
-import { playKey } from '../engine/host';
+import { getAudioContext } from '../platform/audio';
+import { previewSample, previewState } from './preview';
 
 const MIN_GAP = 0.004;
 const MARKER_REACH = 12; // px
+const HANDLE_REACH = 30; // px, so the grab area is >= 60 px wide
+const MIN_GAP_S = 0.02;
+const fmt = (t: number) => `${t.toFixed(2)} s`;
 let dragN = 0;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -16,9 +21,11 @@ type Drag = { id: number; kind: 'start' | 'end' | 'slice'; idx: number; key: str
 export function Waveform({ slot }: { slot: number }) {
   const s = project.value.sounds[slot];
   const box = useRef<HTMLDivElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
   const cv = useRef<HTMLCanvasElement>(null);
   const drag = useRef<Drag | null>(null);
-  const aud = useRef<{ id: number; key: number } | null>(null);
+  const head = useRef<HTMLDivElement>(null);
+  const [bubble, setBubble] = useState<{ kind: 'start' | 'end'; txt: string } | null>(null);
   const [smp, setSmp] = useState<Sample | null>(null);
   const [width, setWidth] = useState(0);
   const sampleId = s?.sampleId ?? null;
@@ -41,6 +48,23 @@ export function Waveform({ slot }: { slot: number }) {
     ro?.observe(el);
     return () => ro?.disconnect();
   }, []);
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const el = head.current;
+      if (!el) return;
+      const st = previewState.peek();
+      if (st.playing && st.sampleId === sampleId && st.durS > 0) {
+        const f = Math.min(1, Math.max(0, (getAudioContext().currentTime - st.startedAt) / st.durS));
+        el.style.display = 'block';
+        el.style.left = `${(st.from01 + (st.to01 - st.from01) * f) * 100}%`;
+      } else el.style.display = 'none';
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [sampleId]);
 
   useEffect(() => {
     const c = cv.current;
@@ -85,25 +109,16 @@ export function Waveform({ slot }: { slot: number }) {
     for (let k = 0; k < sl.length - 1; k++) if (v < sl[k + 1]!) return Math.min(15, k);
     return Math.min(15, sl.length - 2);
   };
-  const auditionOn = (id: number, key: number) => {
-    aud.current = { id, key };
-    playKey(slot, key, true);
-  };
-  const auditionOff = (id: number) => {
-    if (aud.current?.id !== id) return;
-    playKey(slot, aud.current.key, false);
-    aud.current = null;
-  };
   const capture = (e: PointerEvent) => {
     try {
-      box.current?.setPointerCapture(e.pointerId);
+      wrap.current?.setPointerCapture(e.pointerId);
     } catch {
       /* synthetic pointers */
     }
   };
 
   const onBoxDown = (e: PointerEvent) => {
-    if (drag.current || aud.current) return;
+    if (drag.current) return;
     capture(e);
     const v = frac(e.clientX);
     if (drum && sl) {
@@ -121,14 +136,30 @@ export function Waveform({ slot }: { slot: number }) {
         drag.current = { id: e.pointerId, kind: 'slice', idx: best, key: `wf:${slot}:${++dragN}`, moved: false, x0: e.clientX };
         return;
       }
-      auditionOn(e.pointerId, sliceAt(v));
-    } else auditionOn(e.pointerId, 0);
+      previewSlice(sliceAt(v));
+    } else if (drum) {
+      if (sampleId) void previewSample(sampleId, 0, 1);
+    } else if (sampleId) {
+      const dx = (x: number) => Math.abs(x - v) * box.current!.getBoundingClientRect().width;
+      const ds = dx(s.start);
+      const de = dx(s.end);
+      if (Math.min(ds, de) <= HANDLE_REACH) {
+        const kind = ds < de || (ds === de && v <= s.start) ? 'start' : 'end';
+        beginDrag(e, kind);
+      } else void previewSample(sampleId, v >= s.start && v < s.end ? v : s.start, s.end);
+    }
   };
-  const startHandle = (kind: 'start' | 'end') => (e: PointerEvent) => {
-    e.stopPropagation();
-    if (drag.current) return;
-    capture(e);
+  const previewSlice = (k: number) => {
+    if (!sampleId) return;
+    const a = sl ? (sl[k] ?? 0) : k / 16;
+    const b = sl ? (sl[k + 1] ?? 1) : (k + 1) / 16;
+    void previewSample(sampleId, a, b);
+  };
+  const minGap = () => (smp && smp.l.length > 0 ? Math.min(0.25, MIN_GAP_S / (smp.l.length / smp.rate)) : 0.01);
+  const timeOf = (v: number) => fmt(v * (smp ? smp.l.length / smp.rate : 0));
+  const beginDrag = (e: PointerEvent, kind: 'start' | 'end') => {
     drag.current = { id: e.pointerId, kind, idx: 0, key: `wf:${slot}:${++dragN}`, moved: true, x0: e.clientX };
+    setBubble({ kind, txt: timeOf(kind === 'start' ? s.start : s.end) });
   };
   const onMove = (e: PointerEvent) => {
     const d = drag.current;
@@ -138,12 +169,17 @@ export function Waveform({ slot }: { slot: number }) {
       d.moved = true;
     }
     const v = frac(e.clientX);
+    const g = minGap();
+    if (d.kind !== 'slice') {
+      const nv = d.kind === 'start' ? clamp(v, 0, s.end - g) : clamp(v, s.start + g, 1);
+      setBubble({ kind: d.kind, txt: timeOf(nv) });
+    }
     apply(
       (p) => {
         const cur = p.sounds[slot];
         if (!cur) return p;
-        if (d.kind === 'start') return updateSound(p, slot, { start: clamp(v, 0, cur.end - 0.01) });
-        if (d.kind === 'end') return updateSound(p, slot, { end: clamp(v, cur.start + 0.01, 1) });
+        if (d.kind === 'start') return updateSound(p, slot, { start: clamp(v, 0, cur.end - g) });
+        if (d.kind === 'end') return updateSound(p, slot, { end: clamp(v, cur.start + g, 1) });
         const arr = cur.slices.slice();
         arr[d.idx] = clamp(v, (arr[d.idx - 1] ?? 0) + MIN_GAP, (arr[d.idx + 1] ?? 1) - MIN_GAP);
         return updateSound(p, slot, { slices: arr });
@@ -156,29 +192,44 @@ export function Waveform({ slot }: { slot: number }) {
     if (d && d.id === e.pointerId) {
       drag.current = null;
       if (!d.moved && d.kind === 'slice') {
-        // a tap on a marker: audition the slice that starts there
-        playKey(slot, d.idx, true);
-        setTimeout(() => playKey(slot, d.idx, false), 200);
+        // a tap on a marker: preview the slice that starts there
+        previewSlice(d.idx);
       }
+      setBubble(null);
     }
-    auditionOff(e.pointerId);
   };
 
   return (
-    <div class="wfwrap">
-      <div class="wf" ref={box} data-testid="wave" onPointerDown={onBoxDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+    <div class="wfwrap" onPointerDown={onBoxDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} ref={wrap}>
+      <div class="wf" ref={box} data-testid="wave" data-start={s.start.toFixed(4)} data-end={s.end.toFixed(4)}>
         <canvas ref={cv} class="wf-cv" />
+        {sampleId && <div class="wf-play" ref={head} />}
         {!sampleId && <div class="wf-empty">empty slot</div>}
         {!drum && sampleId && (
           <>
             <div class="wf-dim" style={{ left: 0, width: `${s.start * 100}%` }} />
             <div class="wf-dim" style={{ right: 0, width: `${(1 - s.end) * 100}%` }} />
-            <div class="wf-h" data-testid="handle-start" style={{ left: `${s.start * 100}%` }} onPointerDown={startHandle('start')}>
+            <div class="wf-h" data-testid="handle-start" style={{ left: `${s.start * 100}%` }}>
               <i />
+              <b class="top" />
+              <b class="bot" />
             </div>
-            <div class="wf-h" data-testid="handle-end" style={{ left: `${s.end * 100}%` }} onPointerDown={startHandle('end')}>
+            <div class="wf-h" data-testid="handle-end" style={{ left: `${s.end * 100}%` }}>
               <i />
+              <b class="top" />
+              <b class="bot" />
             </div>
+            <span class="wf-t l" data-testid="label-start" style={{ left: `${s.start * 100}%` }}>
+              {timeOf(s.start)}
+            </span>
+            <span class="wf-t r" data-testid="label-end" style={{ left: `${s.end * 100}%` }}>
+              {timeOf(s.end)}
+            </span>
+            {bubble && (
+              <span class="wf-bub" data-testid="bubble" style={{ left: `${(bubble.kind === 'start' ? s.start : s.end) * 100}%` }}>
+                {bubble.txt}
+              </span>
+            )}
           </>
         )}
         {drum && sampleId && sl && (

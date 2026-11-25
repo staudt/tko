@@ -9,9 +9,10 @@ import { MAX_RECORD_SECONDS, MicError, startRecording, type RecordingSession } f
 import { trimSilence } from '../platform/trim';
 import { crop, fadeEdges, limitLength, normalize, reverse } from '../dsp/process';
 import { autoSlices, equalSlices } from '../dsp/slice';
-import { ensureSample, playKey, playing, resample, togglePlay } from '../engine/host';
+import { playing, resample, togglePlay } from '../engine/host';
 import { lcdMessage } from '../lcd/message';
 import { sampling, samplingSlot } from './state';
+import { previewSample } from './preview';
 import { onStep } from './stepTicker';
 import { showToast } from './toast';
 
@@ -150,13 +151,7 @@ export async function installSample(slot: number, name: string, s: Sample, sourc
   apply((p) => updateSound(p, slot, { sampleId: id, name, start: 0, end: 1, slices, hitNames: undefined }));
   bump(s.l.length / s.rate);
   lcdMessage(`SAMPLED ${sid(slot)} ${secs(s)}S`, 2200);
-  if (audition) {
-    await ensureSample(id);
-    setTimeout(() => {
-      playKey(slot, 0, true);
-      setTimeout(() => playKey(slot, 0, false), 600);
-    }, 40);
-  }
+  if (audition) void previewSample(id, 0, 1);
 }
 
 // ---- import / resample ---------------------------------------------------------------------------
@@ -168,7 +163,7 @@ export async function importFile(slot: number, file: File): Promise<void> {
     const s = await decodeFile(file);
     const l = fadeEdges(normalize(limitLength(s.l, s.rate, MAX_SLOT_SECONDS), -1), s.rate);
     const name = file.name.replace(/\.[^.]+$/, '').slice(0, 16) || `Import ${slot + 1}`;
-    await installSample(slot, name, { l, rate: s.rate }, 'file');
+    await installSample(slot, name, { l, rate: s.rate }, 'file', true);
     if (s.l.length / s.rate > MAX_SLOT_SECONDS) showToast(`Only the first ${MAX_SLOT_SECONDS} s were kept.`);
   } catch (e) {
     lcdMessage('IMPORT FAILED');

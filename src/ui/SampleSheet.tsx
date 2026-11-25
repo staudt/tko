@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { apply, project, updateSound } from '../store/project';
-import { MAX_TOTAL_SECONDS } from '../store/samples';
+import { MAX_TOTAL_SECONDS, getSample } from '../store/samples';
+import { previewSample, previewState, stopPreview } from './preview';
 import { sampleSheetOpen, sampling, samplingSlot, selectedSound } from './state';
 import { Sheet } from './Sheet';
 import { Waveform } from './Waveform';
@@ -39,7 +40,18 @@ export function SampleSheet() {
   const [resN, setResN] = useState(1);
   const [confirm, setConfirm] = useState<'clear' | null>(null);
   const file = useRef<HTMLInputElement>(null);
+  const [lenS, setLenS] = useState(0);
+  const sid = s?.sampleId ?? null;
+  useEffect(() => {
+    let live = true;
+    setLenS(0);
+    if (sid) void getSample(sid).then((x) => live && x && setLenS(x.l.length / x.rate), () => {});
+    return () => {
+      live = false;
+    };
+  }, [sid]);
   const close = () => {
+    stopPreview();
     if (sampling.peek() && samplingSlot.peek() === slot) void endRecord();
     setEditing(false);
     setConfirm(null);
@@ -56,6 +68,8 @@ export function SampleSheet() {
   const busy = resampleState.value !== 'idle';
   const used = usedSeconds.value;
   const full = used >= MAX_TOTAL_SECONDS;
+  const pv = previewState.value;
+  const isPlaying = pv.playing && pv.sampleId === s?.sampleId;
   const cropped = !!s && (s.start > 0.001 || s.end < 0.999);
 
   const rename = (v: string) => {
@@ -98,8 +112,26 @@ export function SampleSheet() {
             </div>
           </div>
 
+          <div class="prow">
+            <button
+              class="pbtn"
+              data-testid="play-btn"
+              data-playing={String(isPlaying)}
+              data-previews={pv.n}
+              disabled={!has}
+              onClick={() => (isPlaying ? stopPreview() : sid && void previewSample(sid, drum ? 0 : s.start, drum ? 1 : s.end))}
+            >
+              {isPlaying ? 'Stop' : 'Play'}
+            </button>
+            <div class="pinfo" data-testid="sample-info">
+              <span data-testid="sample-len">{has && lenS > 0 ? `${lenS.toFixed(1)} s` : has ? '…' : 'empty'}</span>
+              {!drum && has && lenS > 0 && (
+                <span data-testid="trim-info">{`trim ${(s.start * lenS).toFixed(2)}–${(s.end * lenS).toFixed(2)} s · ${((s.end - s.start) * lenS).toFixed(2)} s`}</span>
+              )}
+            </div>
+          </div>
           <Waveform slot={slot} />
-          <p class="hint">{!has ? 'Empty. Record, import or resample below.' : drum ? 'Tap a slice to hear it. Drag the markers to move them.' : 'Drag the handles to trim. Tap the wave to hear it.'}</p>
+          <p class="hint">{!has ? 'Empty. Record, import or resample below.' : drum ? 'Tap a slice to hear it. Drag the markers to move them.' : 'Drag the handles to trim. Tap the wave to hear it from there.'}</p>
 
           <div class="tools">
             {drum && (
