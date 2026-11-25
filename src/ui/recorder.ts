@@ -1,10 +1,10 @@
 // Live recording: turns pad hits into steps while armed and playing. One take = one undo step.
 import { effect, signal } from '@preact/signals';
 import { apply, project } from '../store/project';
-import { addKey, removeKey, setFxStep, setLen } from '../store/edit';
+import { addKey, setFxStep, setLen } from '../store/edit';
 import { heldLength, quantizeHit } from '../store/record';
 import { audibleStep, ctxTimeOfEvent, outputLatency, playing, positionAt } from '../engine/host';
-import { heldControls, recArmed } from './state';
+import { recArmed } from './state';
 import { onStep } from './stepTicker';
 import { settings } from './settings';
 import { lcdMessage } from '../lcd/message';
@@ -71,43 +71,7 @@ export function recordFxUp(pid: number): void {
   fxHeld.delete(pid);
 }
 
-// ---- Live erase: REC + pad removes that key at every passed step; REC + FX clears the fx lane.
-const erasing = new Map<number, { sound: number; key: number }>();
-let eraseN = 0;
-let eraseId = 'erase:0';
-
-/** REC pressed: a new erase gesture (one undo step). */
-export function eraseBegin(): void {
-  eraseId = `erase:${++eraseN}`;
-}
-
-export function eraseDown(pid: number, sound: number, key: number): void {
-  erasing.set(pid, { sound, key });
-  const a = audibleStep();
-  if (a && playing.peek()) eraseAt(a.pattern, a.step, sound, key);
-  lcdMessage('ERASE', 600);
-}
-
-export function eraseUp(pid: number): void {
-  erasing.delete(pid);
-}
-
-function eraseAt(pattern: number, step: number, sound: number, key: number): void {
-  apply((p) => removeKey(p, pattern, sound, step, key), { merge: eraseId });
-}
-
 onStep(({ step, pattern }) => {
-  const h = heldControls.peek();
-  if (h.has('btn:rec')) {
-    if (erasing.size) {
-      for (const e of erasing.values()) eraseAt(pattern, step, e.sound, e.key);
-      lcdMessage('ERASE', 600);
-    } else if (h.has('btn:fx')) {
-      apply((p) => setFxStep(p, pattern, step, null), { merge: eraseId });
-      lcdMessage('ERASE FX', 600);
-    }
-    return;
-  }
   if (fxHeld.size && recording()) {
     const fx = [...fxHeld.values()].pop()!;
     apply((p) => setFxStep(p, pattern, step, fx), { merge: currentTake() });
@@ -127,7 +91,6 @@ export function recordRelease(pid: number): void {
 export function clearHits(): void {
   hits.clear();
   fxHeld.clear();
-  erasing.clear();
 }
 
 export function toggleArm(): void {

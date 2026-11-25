@@ -32,3 +32,11 @@
 - Tests: new `tests/e2e/notes.spec.ts`, helper unit tests. Screenshots: `docs/screenshots/{notes,sound-sheet}-390x844.png`.
 
 **Try on the phone:** erase feel (does the key vanish just as the playhead passes?), FX recording alignment vs. what you heard, key/scale note names vs. what you hear, tap vs. hold timing in the step sheet, hint line legibility.
+
+## ERASE button (2026-11-25)
+- New 5th function-row button ERASE (coral eraser icon) replaces REC+pad live erase and REC+FX erase (REC held + pad now does nothing). Logic in `src/ui/erase.ts`, sheet in `src/ui/EraseSheet.tsx`.
+- Target pattern = audible pattern while playing, else edit pattern. Hold ERASE + pad k: clear sound k (pads show the 16 sound names, dot = has notes, coral flash, LCD "CLEAR S10 P01"); in write mode ERASE + step pad clears that step; ERASE + FX clears the fx lane; ERASE held alone while playing (> 300 ms, nothing else touched) live-erases the selected sound's step as the playhead passes. Each hold gesture is one undo step (`erase:N`).
+- Quick tap opens the Erase sheet (clear sound / FX / pattern / ALL; ALL needs a second tap within 3 s). Hint line updated.
+- Tests: `tests/e2e/erase.spec.ts`, updated `notes.spec.ts`/`ui.spec.ts`. Screenshots: `docs/screenshots/erase-390x844.png`, `erase-held-390x844.png`.
+
+**Try on the phone:** live-erase timing (does the step vanish as the playhead passes?), tap vs hold threshold on ERASE, 5-button row touch size.

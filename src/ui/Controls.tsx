@@ -2,8 +2,9 @@ import type { ComponentChildren } from 'preact';
 import { FX_DEFS } from '../engine/fx/ids';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode } from './state';
+import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode, eraseFlash } from './state';
 import { getStep, patternIsEmpty } from '../store/edit';
+import { targetPattern } from './erase';
 import { hasExtras, isTonic, keyLabel, shortHit, stepLabel } from './stepHelpers';
 
 export const Icon = ({ name }: { name: string }) => {
@@ -12,6 +13,7 @@ export const Icon = ({ name }: { name: string }) => {
     pattern: <path d="M4 6h4v4H4zM10 6h4v4h-4zM16 6h4v4h-4zM4 14h4v4H4zM10 14h4v4h-4z" />,
     bpm: <path d="M12 3l-6 18h12zM12 8v8M12 16l5-6" />,
     sample: <path d="M9 4h6v8a3 3 0 0 1-6 0zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
+    erase: <path d="M4 16l9-10a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-6 6H8zM9 11l6 6M12 20h8" />,
     rec: <circle cx="12" cy="12" r="6" />,
     fx: <path d="M13 3L5 14h6l-1 7 8-11h-6z" />,
     play: <path d="M7 4v16l13-8z" />,
@@ -44,19 +46,26 @@ export function Pad({ k }: { k: number }) {
   const held = heldControls.value;
   const sel = selectedSound.value;
   const sounds = project.value.sounds;
-  const soundMode = held.has('fn:sound');
-  const fxMode = !soundMode && held.has('btn:fx');
-  const patMode = !soundMode && !fxMode && held.has('fn:pattern');
-  const bpmMode = !soundMode && !fxMode && !patMode && held.has('fn:bpm');
-  const keyPick = !soundMode && !fxMode && !patMode && !bpmMode && held.has('btn:write');
-  const writing = !keyPick && !soundMode && !fxMode && !patMode && !bpmMode && writeMode.value;
+  const eraseMode = held.has('fn:erase') && !writeMode.value;
+  const eraseWrite = held.has('fn:erase') && writeMode.value;
+  const has = (id: string) => !eraseMode && !eraseWrite && held.has(id);
+  const soundMode = has('fn:sound');
+  const fxMode = !soundMode && has('btn:fx');
+  const patMode = !soundMode && !fxMode && has('fn:pattern');
+  const bpmMode = !soundMode && !fxMode && !patMode && has('fn:bpm');
+  const keyPick = !soundMode && !fxMode && !patMode && !bpmMode && has('btn:write');
+  const writing = !keyPick && !soundMode && !fxMode && !patMode && !bpmMode && !eraseMode && writeMode.value;
   const pressed = held.has(`pad:${k}`);
   let lit = false;
   let label = '';
   let sub = '';
   let dot = false;
   let cls = '';
-  if (soundMode) {
+  if (eraseMode) {
+    label = shortName(sounds[k]?.name ?? '');
+    sub = k < 8 ? 'melodic' : 'drum';
+    dot = !!project.value.patterns[targetPattern(true)]?.lanes[k]?.some((x) => x);
+  } else if (soundMode) {
     lit = k === sel;
     label = shortName(sounds[k]?.name ?? '');
     sub = k < 8 ? 'melodic' : 'drum';
@@ -99,11 +108,12 @@ export function Pad({ k }: { k: number }) {
     if (isTonic(s, k, project.value)) cls += ' tonic';
     cls += ' m-play';
   }
-  const mode = keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
-  const on = pressed || (soundMode && lit);
+  const mode = eraseMode ? 'erase' : keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
+  const flashed = eraseFlash.value === k;
+  const on = (pressed && !eraseMode) || (soundMode && lit);
   return (
     <div
-      class={`pad${on ? ' on' : ''}${lit && !soundMode ? ' lit' : ''}${mode ? ` m-${mode}` : ''}${cls}`}
+      class={`pad${on ? ' on' : ''}${lit && !soundMode ? ' lit' : ''}${mode ? ` m-${mode}` : ''}${cls}${flashed ? ' eflash' : ''}`}
       data-ctl={`pad:${k}`}
       data-testid={`pad-${k + 1}`}
       role="button"
@@ -119,7 +129,7 @@ export function Pad({ k }: { k: number }) {
 }
 
 export function PadGrid() {
-  const soundMode = heldControls.value.has('fn:sound');
+  const soundMode = heldControls.value.has('fn:sound') || (heldControls.value.has('fn:erase') && !writeMode.value);
   const write = writeMode.value;
   return (
     <div class="pads">

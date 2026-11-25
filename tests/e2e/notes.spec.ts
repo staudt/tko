@@ -82,29 +82,24 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await expect(page.locator('.sheet-wrap.open')).toHaveCount(1);
   });
 
-  test('live erase: REC + pad removes keys while playing; one undo restores', async ({ page }) => {
+  test('REC held + pad does nothing: no note, no erase', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'WRITE'));
     for (let k = 1; k <= 16; k++) await tapCtl(t, page, page.getByTestId(`pad-${k}`));
     await expect.poll(() => lane0(page)).toBe(16);
     await tapCtl(t, page, btn(page, 'WRITE'));
-    await tapCtl(t, page, btn(page, 'PLAY'));
-    await page.waitForTimeout(300);
+    const plays = (await commands(page)).filter((c) => c.type === 'play' && c.on).length;
     const r = await center(btn(page, 'REC'));
     const p = await center(page.getByTestId('pad-1'));
-    const plays = (await commands(page)).filter((c) => c.type === 'play' && c.on).length;
     await t.down(1, r.x, r.y);
     await t.down(2, p.x, p.y);
-    await page.waitForTimeout(2300);
+    await page.waitForTimeout(200);
     await t.up(2);
     await t.up(1);
-    await tapCtl(t, page, btn(page, 'PLAY'));
     expect((await commands(page)).filter((c) => c.type === 'play' && c.on).length).toBe(plays);
-    expect(await lane0(page)).toBeLessThanOrEqual(4);
+    expect(await lane0(page)).toBe(16);
     await expect(btn(page, 'REC')).toHaveAttribute('aria-pressed', 'false');
-    await page.getByRole('button', { name: 'Undo' }).tap();
-    await expect.poll(() => lane0(page)).toBe(16);
   });
 
   test('FX record: armed + playing, FX + pad 1 writes the fx lane', async ({ page }) => {
@@ -127,7 +122,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
   test('SAMPLE button: tap and hold + pad show a message, no note', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
-    const n0 = (await commands(page)).filter((c) => c.type === 'play').length;
+    const n0 = (await commands(page)).filter((c) => c.type === 'play' && c.on).length;
     await tapCtl(t, page, btn(page, 'SAMPLE'));
     const s = await center(btn(page, 'SAMPLE'));
     const p = await center(page.getByTestId('pad-4'));
@@ -135,7 +130,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await t.down(2, p.x, p.y);
     await t.up(2);
     await t.up(1);
-    expect((await commands(page)).filter((c) => c.type === 'play').length).toBe(n0);
+    expect((await commands(page)).filter((c) => c.type === 'play' && c.on).length).toBe(n0);
   });
 
   test('SOUND held: dot shows notes in the edit pattern; card long-press clears the lane', async ({ page }) => {
@@ -161,7 +156,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await expect.poll(() => lane0(page)).toBe(0);
   });
 
-  test('layout: four-button function row fits 360x640', async ({ page }) => {
+  test('layout: five-button function row fits 360x640', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto('/');
     await expect(page.getByTestId('pad-16')).toBeVisible();
@@ -169,12 +164,12 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     expect(m.sh).toBeLessThanOrEqual(m.ch);
     expect(m.sw).toBeLessThanOrEqual(m.cw);
     const boxes = [];
-    for (const n of ['SOUND', 'PATTERN', 'BPM', 'SAMPLE']) {
+    for (const n of ['SOUND', 'PATTERN', 'BPM', 'SAMPLE', 'ERASE']) {
       const b = (await btn(page, n).boundingBox())!;
       expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(44);
       boxes.push(b);
     }
     for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.x).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.width - 0.5);
-    expect(boxes[3]!.x + boxes[3]!.width).toBeLessThanOrEqual(360);
+    expect(boxes[4]!.x + boxes[4]!.width).toBeLessThanOrEqual(360);
   });
 });

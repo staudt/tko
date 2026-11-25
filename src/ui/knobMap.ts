@@ -3,7 +3,7 @@ import { apply, project, updateSound } from '../store/project';
 import { fxKnob } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { editPattern, fxPad, fxXY, heldControls, heldStep, knobMode, lastKey, lastKeyVer, recArmed, selectedSound, writeMode } from './state';
+import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, lastKeyVer, recArmed, selectedSound, writeMode } from './state';
 import { playing } from '../engine/host';
 import { getStep, setLock, setStep } from '../store/edit';
 import { knobToPitch, knobToTone, pitchToKnob, toneToKnob } from './stepHelpers';
@@ -30,9 +30,9 @@ export function hintText(): string {
   if (mode === 'bpm') return 'A: tempo · B: swing · pad: volume';
   if (mode === 'trim') return project.value.sounds[selectedSound.value]?.kind === 'drum' ? 'A: volume · pad: select sound' : 'A: trim start · B: trim end · pad: select';
   if (mode === 'lock') return 'A: lock pitch · B: lock tone · tap: length';
-  if ((recArmed.value && playing.value) || heldControls.value.has('btn:rec')) return 'REC+pad: erase · FX+pad: record fx';
-  if (writeMode.value) return 'tap: step · hold+knob: lock · hold+tap: length';
-  return 'hold SOUND+pad: select · tap WRITE: steps';
+  if (recArmed.value && playing.value) return 'FX+pad: record fx · hold ERASE: erase';
+  if (writeMode.value) return 'tap: step · hold+knob: lock · ERASE+step: clear';
+  return 'hold ERASE+pad: clear sound';
 }
 
 export function knobSpecs(): KnobSpecs {

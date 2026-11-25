@@ -16,7 +16,7 @@ test.describe('layout', () => {
         expect(b.height, `pad ${k} h`).toBeGreaterThanOrEqual(56);
         expect(b.y + b.height).toBeLessThanOrEqual(h);
       }
-      for (const name of ['SOUND', 'PATTERN', 'BPM', 'SAMPLE', 'REC', 'FX', 'PLAY', 'WRITE']) {
+      for (const name of ['SOUND', 'PATTERN', 'BPM', 'SAMPLE', 'ERASE', 'REC', 'FX', 'PLAY', 'WRITE']) {
         const b = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
         expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(44);
       }

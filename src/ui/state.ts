@@ -55,6 +55,9 @@ export const audPattern = signal(-1);
 export const audChainPos = signal(0);
 export const patternSheetOpen = signal(false);
 export const bpmSheetOpen = signal(false);
+export const eraseSheetOpen = signal(false);
+/** Pad (0..15) that just got erased (brief coral flash), else -1. */
+export const eraseFlash = signal(-1);
 /** Step whose sheet is open (null = closed). */
 export const stepSheet = signal<number | null>(null);
 

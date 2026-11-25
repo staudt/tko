@@ -5,6 +5,7 @@ import { FnButton, Icon, PadGrid } from '../ui/Controls';
 import { SoundSheet } from '../ui/SoundSheet';
 import { PatternSheet } from '../ui/PatternSheet';
 import { BpmSheet } from '../ui/BpmSheet';
+import { EraseSheet } from '../ui/EraseSheet';
 import { StepSheet } from '../ui/StepSheet';
 import { startPlayhead } from '../ui/playhead';
 import { canRedo, canUndo, redo, undo } from '../store/project';
@@ -66,11 +67,13 @@ export function Instrument() {
         <FnButton id="fn:pattern" label="PATTERN" icon="pattern" />
         <FnButton id="fn:bpm" label="BPM" icon="bpm" />
         <FnButton id="fn:sample" label="SAMPLE" icon="sample" />
+        <FnButton id="fn:erase" label="ERASE" icon="erase" variant="erase" />
       </div>
       <PadGrid />
       <SoundSheet />
       <PatternSheet />
       <BpmSheet />
+      <EraseSheet />
       <StepSheet />
       <SettingsSheet />
       <div class="rotate">Rotate your phone</div>
