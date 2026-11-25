@@ -2,6 +2,7 @@
 import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
 import { FX_DEFAULT_XY, FX_IDS } from '../engine/fx/ids';
+import { keyLabel } from './stepHelpers';
 import { chainDraft, bpmSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
@@ -108,6 +109,13 @@ export const handlers: RouterHandlers = {
       if (h.has('fn:sound')) {
         selectSound(k);
         padActions.set(pid, { t: 'none' });
+      } else if (h.has('btn:write')) {
+        // WRITE held + pad: choose the key new steps are written with (and hear it while held).
+        const sound = selectedSound.peek();
+        setLastKey(sound, k);
+        playKey(sound, k, true);
+        padActions.set(pid, { t: 'note', sound, key: k });
+        lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k).toUpperCase()}`);
       } else if (h.has('btn:fx')) {
         if (k < FX_IDS.length) {
           fxPad.value = k;
@@ -144,11 +152,6 @@ export const handlers: RouterHandlers = {
       void togglePlay();
       return;
     }
-    if (id === 'btn:write') {
-      writeMode.value = !writeMode.peek();
-      lcdMessage(writeMode.peek() ? 'WRITE ON' : 'WRITE OFF');
-      return;
-    }
     // function buttons: remember press time; combos with anything already held make it "used".
     fnDown.set(id, { t: performance.now(), used: h.size > 1 });
     if (id === 'fn:pattern') chainDraft.value = [];
@@ -174,6 +177,11 @@ export const handlers: RouterHandlers = {
       if (id === 'fn:sound') soundSheetOpen.value = true;
       else if (id === 'fn:pattern') patternSheetOpen.value = true;
       else if (id === 'fn:bpm') bpmSheetOpen.value = true;
+    }
+    // WRITE toggles on a tap; held with a pad it chose the write key instead.
+    if (id === 'btn:write' && f && !cancelled && !f.used) {
+      writeMode.value = !writeMode.peek();
+      lcdMessage(writeMode.peek() ? 'WRITE ON' : 'WRITE OFF');
     }
   },
   reset() {

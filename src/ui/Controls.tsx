@@ -2,9 +2,9 @@ import type { ComponentChildren } from 'preact';
 import { FX_DEFS } from '../engine/fx/ids';
 import { playing } from '../engine/host';
 import { project } from '../store/project';
-import { audPattern, chainDraft, editPattern, heldControls, queuedPattern, selectedSound, writeMode } from './state';
+import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, writeMode } from './state';
 import { getStep, patternIsEmpty } from '../store/edit';
-import { hasExtras, stepLabel } from './stepHelpers';
+import { hasExtras, stepLabel, keyLabel } from './stepHelpers';
 
 export const Icon = ({ name }: { name: string }) => {
   const paths: Record<string, ComponentChildren> = {
@@ -46,7 +46,8 @@ export function Pad({ k }: { k: number }) {
   const fxMode = !soundMode && held.has('btn:fx');
   const patMode = !soundMode && !fxMode && held.has('fn:pattern');
   const bpmMode = !soundMode && !fxMode && !patMode && held.has('fn:bpm');
-  const writing = !soundMode && !fxMode && !patMode && !bpmMode && writeMode.value;
+  const keyPick = !soundMode && !fxMode && !patMode && !bpmMode && held.has('btn:write');
+  const writing = !keyPick && !soundMode && !fxMode && !patMode && !bpmMode && writeMode.value;
   const pressed = held.has(`pad:${k}`);
   let lit = false;
   let label = '';
@@ -79,6 +80,11 @@ export function Pad({ k }: { k: number }) {
     label = `${Math.round(((k + 1) / 16) * 100)}%`;
     sub = k === 0 ? 'volume' : '';
     cls += k + 1 === lvl ? ' top' : '';
+  } else if (keyPick) {
+    lastKeyVer.value;
+    lit = (lastKey[sel] ?? 0) === k;
+    label = keyLabel(sounds[sel], k);
+    sub = k === (lastKey[sel] ?? 0) ? 'write' : '';
   } else if (writing) {
     const d = getStep(project.value, editPattern.value, sel, k);
     lit = !!d;
@@ -88,7 +94,7 @@ export function Pad({ k }: { k: number }) {
     const s = sounds[sel];
     dot = s?.kind === 'drum' ? k < (s.slices.length > 1 ? s.slices.length - 1 : 16) : k === 0;
   }
-  const mode = soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
+  const mode = keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
   const on = pressed || (soundMode && lit);
   return (
     <div

@@ -46,6 +46,36 @@ test.describe('sequencer (touch)', () => {
     await expect.poll(async () => (await lastPattern(page))?.keys[4]).toBeGreaterThan(0);
   });
 
+  test('WRITE held + pad chooses the key new steps use, and it is remembered', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    // select drum sound 10 (index 9)
+    const snd = await center(btn(page, 'SOUND'));
+    const p10 = await center(page.getByTestId('pad-10'));
+    await t.down(1, snd.x, snd.y);
+    await t.down(2, p10.x, p10.y);
+    await t.up(2);
+    await t.up(1);
+    // hold WRITE + pad 4 → write key 3 (mode stays off)
+    const w = await center(btn(page, 'WRITE'));
+    const p4 = await center(page.getByTestId('pad-4'));
+    await t.down(1, w.x, w.y);
+    await t.down(2, p4.x, p4.y);
+    await expect(page.getByTestId('pad-4')).toHaveClass(/\blit\b/);
+    await t.up(2);
+    await t.up(1);
+    await expect(btn(page, 'WRITE')).toHaveAttribute('aria-pressed', 'false');
+    // WRITE on, tap steps 1 and 9 → both use key 3
+    await tapCtl(t, page, btn(page, 'WRITE'));
+    await expect(page.getByTestId('readout')).toContainText('WRITE ·');
+    await tapCtl(t, page, page.getByTestId('pad-1'));
+    await tapCtl(t, page, page.getByTestId('pad-9'));
+    await expect.poll(async () => (await lastPattern(page))?.keys[9 * 16 + 8]).toBe(1 << 3);
+    expect((await lastPattern(page))?.keys[9 * 16 + 0]).toBe(1 << 3);
+    // remembered across reloads
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('tko.lastKey') ?? '[]')[9])).toBe(3);
+  });
+
   test('hold a step + drag knob A sets a pitch lock', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);

@@ -16,13 +16,32 @@ export const writeMode = signal(false);
 export const editPattern = signal(0);
 /** Step pad (0..15) held in write mode (earliest still down), else null. */
 export const heldStep = signal<number | null>(null);
-/** Last key played live per sound (default 0). Plain array + version signal. */
-export const lastKey: number[] = new Array<number>(16).fill(0);
+/**
+ * The key each sound writes into new steps (default 0): the last key played live, chosen with
+ * WRITE + pad, or added in the step sheet. Remembered across reloads. Plain array + version signal.
+ */
+const LAST_KEY_STORAGE = 'tko.lastKey';
+export const lastKey: number[] = loadLastKeys();
 export const lastKeyVer = signal(0);
 export function setLastKey(sound: number, key: number): void {
   if (lastKey[sound] === key) return;
   lastKey[sound] = key;
   lastKeyVer.value++;
+  try {
+    localStorage.setItem(LAST_KEY_STORAGE, JSON.stringify(lastKey));
+  } catch {
+    /* storage unavailable: keep in memory only */
+  }
+}
+function loadLastKeys(): number[] {
+  const out = new Array<number>(16).fill(0);
+  try {
+    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(LAST_KEY_STORAGE) ?? 'null');
+    if (Array.isArray(raw)) raw.slice(0, 16).forEach((k, i) => Number.isInteger(k) && k >= 0 && k < 16 && (out[i] = k as number));
+  } catch {
+    /* ignore */
+  }
+  return out;
 }
 /** Pads pressed (in order) while PATTERN is held: the chain being built. */
 export const chainDraft = signal<readonly number[]>([]);

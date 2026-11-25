@@ -2,6 +2,7 @@ import { useRef } from 'preact/hooks';
 import { apply, project } from '../store/project';
 import { getStep, setLen, setLock, setStep, toggleKey } from '../store/edit';
 import { editPattern, selectedSound, stepSheet } from './state';
+import { setLastKey } from './state';
 import { Sheet } from './Sheet';
 import { audition } from './controls';
 import { keyLabel, knobToPitch, knobToTone } from './stepHelpers';
@@ -66,7 +67,10 @@ export function StepSheet() {
                   aria-pressed={on}
                   onClick={() => {
                     apply((p) => toggleKey(p, pat, snd, s, k));
-                    if (!on) audition(snd, k);
+                    if (!on) {
+                      audition(snd, k);
+                      setLastKey(snd, k);
+                    }
                   }}
                 >
                   <span class="kn">{k + 1}</span>

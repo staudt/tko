@@ -2,7 +2,8 @@
 import { apply, project, updateSound } from '../store/project';
 import { fxKnob } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
-import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, selectedSound } from './state';
+import { keyLabel } from './stepHelpers';
+import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, lastKeyVer, selectedSound, writeMode } from './state';
 import { getStep, setLock, setStep } from '../store/edit';
 import { knobToPitch, knobToTone, pitchToKnob, toneToKnob } from './stepHelpers';
 import { markUsed, setBpm, setSwing } from './controls';
@@ -124,7 +125,7 @@ export function knobSpecs(): KnobSpecs {
   const pitch = s?.pitch ?? 0;
   const tone = s?.tone ?? 0;
   return {
-    title: s ? `${pad(i)} ${s.name}`.toUpperCase() : pad(i),
+    title: s ? (writeMode.value ? `WRITE · ${keyLabel(s, (lastKeyVer.value, lastKey[i] ?? 0))}` : `${pad(i)} ${s.name}`).toUpperCase() : pad(i),
     a: {
       label: 'Pitch',
       text: `PITCH ${signed(Math.round(pitch))}`,
