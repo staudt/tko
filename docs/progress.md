@@ -40,3 +40,10 @@
 - Tests: `tests/e2e/erase.spec.ts`, updated `notes.spec.ts`/`ui.spec.ts`. Screenshots: `docs/screenshots/erase-390x844.png`, `erase-held-390x844.png`.
 
 **Try on the phone:** live-erase timing (does the step vanish as the playhead passes?), tap vs hold threshold on ERASE, 5-button row touch size.
+
+## Inline tempo pill (2026-11-25)
+- BPM sheet removed. Tempo pill in the knob row centre (`src/ui/TempoPill.tsx`, logic `src/ui/tempo.ts`, router id `tempo`, new optional `move` router handler): drag = 1 BPM per 6 px after a 6 px dead zone (one undo step per drag), tap = tap tempo (>= 3 taps, pill shows TAP and flashes, resets after 2 s idle, one undo step per sequence), long-press 500 ms = presets 80/120/140. Shows swing when != 50 and a dot when the metronome is on.
+- BPM button tap toggles the metronome "always on" setting (LCD METRO ON/OFF, button lit); BPM hold + knobs/pads unchanged.
+- Tests: tempo pill + metronome tests in `tests/e2e/seq.spec.ts`. Screenshot `docs/screenshots/tempo-390x844.png`.
+
+**Try on the phone:** drag feel (px per BPM, dead zone), tap vs long-press timing on the pill, tap-tempo accuracy, drag while holding a pad.

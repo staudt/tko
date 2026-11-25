@@ -3,7 +3,7 @@ import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
 import { FX_DEFAULT_XY, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { chainDraft, bpmSheetOpen, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
+import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, patternSheetOpen, queuedPattern, selectedSound, setLastKey, soundSheetOpen, stepSheet, writeMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
 import { getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
@@ -11,7 +11,8 @@ import { chainText, lenBetween } from './stepHelpers';
 import { clearHits, recordFxDown, recordFxUp, recordHit, recordRelease, toggleArm } from './recorder';
 import { eraseBegin, eraseFxHeld, eraseLiveStep, eraseSoundHeld, eraseStepHeld } from './erase';
 import { onStep } from './stepTicker';
-import './settings';
+import { setSettings, settings } from './settings';
+import { tempoDown, tempoMove, tempoReset, tempoUp } from './tempo';
 
 type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'none' };
 const padActions = new Map<number, PadAction>();
@@ -165,6 +166,10 @@ export const handlers: RouterHandlers = {
       }
       return;
     }
+    if (id === 'tempo') {
+      tempoDown(pid, e);
+      return;
+    }
     if (id === 'btn:play') {
       markUsed();
       void togglePlay();
@@ -181,7 +186,14 @@ export const handlers: RouterHandlers = {
       for (const f of fnDown.values()) f.used = true;
     }
   },
+  move(id, pid, e) {
+    if (id === 'tempo') tempoMove(pid, e);
+  },
   up(id, pid, cancelled) {
+    if (id === 'tempo') {
+      tempoUp(pid, cancelled);
+      return;
+    }
     if (id.startsWith('pad:')) {
       const a = padActions.get(pid);
       padActions.delete(pid);
@@ -202,7 +214,10 @@ export const handlers: RouterHandlers = {
     if (f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) {
       if (id === 'fn:sound') soundSheetOpen.value = true;
       else if (id === 'fn:pattern') patternSheetOpen.value = true;
-      else if (id === 'fn:bpm') bpmSheetOpen.value = true;
+      else if (id === 'fn:bpm') {
+        setSettings({ metro: !settings.peek().metro });
+        lcdMessage(settings.peek().metro ? 'METRO ON' : 'METRO OFF');
+      }
       else if (id === 'fn:sample') lcdMessage('SAMPLING SOON');
       else if (id === 'fn:erase') eraseSheetOpen.value = true;
     }
@@ -214,6 +229,7 @@ export const handlers: RouterHandlers = {
     }
   },
   reset() {
+    tempoReset();
     padActions.clear();
     clearHits();
     fnDown.clear();

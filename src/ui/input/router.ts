@@ -7,6 +7,8 @@ import { panic } from '../../engine/host';
 export type RouterHandlers = {
   down(id: string, pointerId: number, e: PointerEvent): void;
   up(id: string, pointerId: number, cancelled: boolean): void;
+  /** Pointer moved while held (only called for controls that care). */
+  move?(id: string, pointerId: number, e: PointerEvent): void;
   /** Called after a global release (state reset). */
   reset(): void;
 };
@@ -49,6 +51,10 @@ export function attachRouter(root: HTMLElement, h: RouterHandlers): () => void {
     publish();
     h.up(id, e.pointerId, e.type === 'pointercancel');
   };
+  const onMove = (e: PointerEvent) => {
+    const id = pointers.get(e.pointerId);
+    if (id !== undefined) h.move?.(id, e.pointerId, e);
+  };
   const onCancel = (e: PointerEvent) => {
     if (pointers.has(e.pointerId)) releaseAll();
   };
@@ -62,6 +68,7 @@ export function attachRouter(root: HTMLElement, h: RouterHandlers): () => void {
   const block = (e: Event) => e.preventDefault();
 
   root.addEventListener('pointerdown', onDown);
+  root.addEventListener('pointermove', onMove);
   root.addEventListener('pointerup', onUp);
   root.addEventListener('pointercancel', onCancel);
   root.addEventListener('lostpointercapture', onLostCapture);
@@ -71,6 +78,7 @@ export function attachRouter(root: HTMLElement, h: RouterHandlers): () => void {
   document.addEventListener('visibilitychange', onVisibility);
   return () => {
     root.removeEventListener('pointerdown', onDown);
+    root.removeEventListener('pointermove', onMove);
     root.removeEventListener('pointerup', onUp);
     root.removeEventListener('pointercancel', onCancel);
     root.removeEventListener('lostpointercapture', onLostCapture);

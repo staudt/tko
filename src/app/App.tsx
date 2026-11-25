@@ -4,7 +4,6 @@ import { Knob } from '../ui/Knob';
 import { FnButton, Icon, PadGrid } from '../ui/Controls';
 import { SoundSheet } from '../ui/SoundSheet';
 import { PatternSheet } from '../ui/PatternSheet';
-import { BpmSheet } from '../ui/BpmSheet';
 import { EraseSheet } from '../ui/EraseSheet';
 import { StepSheet } from '../ui/StepSheet';
 import { startPlayhead } from '../ui/playhead';
@@ -13,7 +12,9 @@ import { hintText, knobSpecs } from '../ui/knobMap';
 import { attachRouter } from '../ui/input/router';
 import { handlers } from '../ui/controls';
 import { SettingsSheet } from '../ui/SettingsSheet';
-import { locked, selectedSound, settingsOpen } from '../ui/state';
+import { TempoPill } from '../ui/TempoPill';
+import { settings } from '../ui/settings';
+import { heldControls, locked, selectedSound, settingsOpen } from '../ui/state';
 
 export function KnobRow() {
   const { title, a, b } = knobSpecs();
@@ -25,6 +26,7 @@ export function KnobRow() {
       </div>
       <div class="readout" data-testid="readout">
         <div class="ro-title">{title}</div>
+        <TempoPill />
         <div class="ro-hint" data-testid="hint">{hintText()}</div>
       </div>
       <div class="knob-col">
@@ -65,14 +67,13 @@ export function Instrument() {
       <div class="fnrow">
         <FnButton id="fn:sound" label="SOUND" icon="sound" />
         <FnButton id="fn:pattern" label="PATTERN" icon="pattern" />
-        <FnButton id="fn:bpm" label="BPM" icon="bpm" />
+        <FnButton id="fn:bpm" label="BPM" icon="bpm" lit={settings.value.metro || heldControls.value.has('fn:bpm')} />
         <FnButton id="fn:sample" label="SAMPLE" icon="sample" />
         <FnButton id="fn:erase" label="ERASE" icon="erase" variant="erase" />
       </div>
       <PadGrid />
       <SoundSheet />
       <PatternSheet />
-      <BpmSheet />
       <EraseSheet />
       <StepSheet />
       <SettingsSheet />

@@ -167,23 +167,79 @@ test.describe('sequencer (touch)', () => {
     await expect.poll(async () => (await lastPattern(page, 2))?.keys[0]).toBe(0);
   });
 
-  test('BPM sheet: 4 taps 500 ms apart -> ~120 BPM', async ({ page }) => {
+  const tempos = async (page: Page) => (await commands(page)).filter((c) => c.type === 'tempo');
+  const lastBpm = async (page: Page) => (await tempos(page)).pop()?.bpm as number;
+  const longPressPill = async (t: Touch, page: Page) => {
+    const c = await center(page.getByTestId('tempo'));
+    await t.down(3, c.x, c.y);
+    await page.waitForTimeout(650);
+    await t.up(3);
+  };
+
+  test('tempo pill: drag right ~60 px -> about +10 BPM, one undo reverts', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
-    await tapCtl(t, page, btn(page, 'BPM'));
-    await expect(page.getByRole('dialog', { name: 'Tempo' })).toBeVisible();
-    await page.getByTestId('preset-80').tap();
-    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'tempo').pop()?.bpm).toBe(80);
-    const c = await center(page.getByTestId('tap-pad'));
+    await expect.poll(() => lastBpm(page)).toBe(120);
+    const c = await center(page.getByTestId('tempo'));
+    await t.down(3, c.x, c.y);
+    for (let i = 1; i <= 12; i++) await t.move(3, c.x + i * 5, c.y);
+    await t.up(3);
+    await expect.poll(() => lastBpm(page)).toBeGreaterThanOrEqual(127);
+    expect(await lastBpm(page)).toBeLessThanOrEqual(133);
+    await expect(page.getByTestId('tempo-num')).toContainText(String(await lastBpm(page)));
+    await page.getByRole('button', { name: 'Undo' }).tap();
+    await expect.poll(() => lastBpm(page)).toBe(120);
+  });
+
+  test('tempo pill: 4 taps 500 ms apart -> ~120 BPM', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await longPressPill(t, page); // 120 -> 140
+    await longPressPill(t, page); // 140 -> 80
+    await expect.poll(() => lastBpm(page)).toBe(80);
+    const c = await center(page.getByTestId('tempo'));
     const t0 = Date.now();
     for (let i = 0; i < 4; i++) {
       await page.waitForTimeout(Math.max(0, t0 + i * 500 - Date.now()));
       await t.down(3, c.x, c.y);
       await t.up(3);
+      if (i === 0) await expect(page.getByTestId('tempo-num')).toHaveText('TAP');
     }
-    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'tempo').pop()?.bpm as number).toBeGreaterThan(114);
-    const bpm = (await commands(page)).filter((c) => c.type === 'tempo').pop()?.bpm as number;
-    expect(bpm).toBeLessThan(126);
+    await expect.poll(() => lastBpm(page)).toBeGreaterThan(114);
+    expect(await lastBpm(page)).toBeLessThan(126);
+  });
+
+  test('tempo pill: long-press cycles presets 120 -> 140', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await expect.poll(() => lastBpm(page)).toBe(120);
+    await longPressPill(t, page);
+    await expect.poll(() => lastBpm(page)).toBe(140);
+    await expect(page.getByTestId('tempo-num')).toContainText('140');
+  });
+
+  test('tempo pill works while another finger holds a pad', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    const p = await center(page.getByTestId('pad-3'));
+    await t.down(1, p.x, p.y);
+    await longPressPill(t, page);
+    await t.up(1);
+    await expect.poll(() => lastBpm(page)).toBe(140);
+  });
+
+  test('tap BPM toggles the metronome and lights the button', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    const metro = async () => (await commands(page)).filter((c) => c.type === 'metronome').pop()?.on;
+    await tapCtl(t, page, btn(page, 'BPM'));
+    await expect.poll(metro).toBe(true);
+    await expect(btn(page, 'BPM')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('tempo-metro')).toBeVisible();
+    await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
+    await tapCtl(t, page, btn(page, 'BPM'));
+    await expect.poll(metro).toBe(false);
+    await expect(btn(page, 'BPM')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('hold BPM + pad 12 -> master volume 12/16', async ({ page }) => {
@@ -219,6 +275,7 @@ test.describe('sequencer layout', () => {
     await tapCtl(t, page, btn(page, 'WRITE'));
     await tapCtl(t, page, page.getByTestId('pad-1'));
     await noScroll();
+    expect((await page.getByTestId('tempo').boundingBox())!.height).toBeGreaterThanOrEqual(44);
     for (let k = 1; k <= 16; k++) {
       const b = (await page.getByTestId(`pad-${k}`).boundingBox())!;
       expect(b.width).toBeGreaterThanOrEqual(56);
@@ -226,7 +283,6 @@ test.describe('sequencer layout', () => {
     }
     for (const [name, open] of [
       ['Patterns', () => tapCtl(t, page, btn(page, 'PATTERN'))],
-      ['Tempo', () => tapCtl(t, page, btn(page, 'BPM'))],
       ['Step', async () => {
         const p = await center(page.getByTestId('pad-1'));
         await t.down(1, p.x, p.y);

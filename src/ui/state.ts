@@ -54,7 +54,9 @@ export const queuedPattern = signal<number | null>(null);
 export const audPattern = signal(-1);
 export const audChainPos = signal(0);
 export const patternSheetOpen = signal(false);
-export const bpmSheetOpen = signal(false);
+/** Tap-tempo: true while collecting taps; `tapPulse` bumps per tap (flash). */
+export const tapCollecting = signal(false);
+export const tapPulse = signal(0);
 export const eraseSheetOpen = signal(false);
 /** Pad (0..15) that just got erased (brief coral flash), else -1. */
 export const eraseFlash = signal(-1);
