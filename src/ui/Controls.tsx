@@ -4,13 +4,14 @@ import { playing } from '../engine/host';
 import { project } from '../store/project';
 import { audPattern, chainDraft, editPattern, heldControls, lastKey, lastKeyVer, queuedPattern, selectedSound, recArmed, writeMode } from './state';
 import { getStep, patternIsEmpty } from '../store/edit';
-import { hasExtras, stepLabel, keyLabel } from './stepHelpers';
+import { hasExtras, isTonic, keyLabel, shortHit, stepLabel } from './stepHelpers';
 
 export const Icon = ({ name }: { name: string }) => {
   const paths: Record<string, ComponentChildren> = {
     sound: <path d="M4 10v4h3l5 4V6L7 10zM15 9a4 4 0 0 1 0 6M17.5 6.5a8 8 0 0 1 0 11" />,
     pattern: <path d="M4 6h4v4H4zM10 6h4v4h-4zM16 6h4v4h-4zM4 14h4v4H4zM10 14h4v4h-4z" />,
     bpm: <path d="M12 3l-6 18h12zM12 8v8M12 16l5-6" />,
+    sample: <path d="M9 4h6v8a3 3 0 0 1-6 0zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
     rec: <circle cx="12" cy="12" r="6" />,
     fx: <path d="M13 3L5 14h6l-1 7 8-11h-6z" />,
     play: <path d="M7 4v16l13-8z" />,
@@ -59,7 +60,7 @@ export function Pad({ k }: { k: number }) {
     lit = k === sel;
     label = shortName(sounds[k]?.name ?? '');
     sub = k < 8 ? 'melodic' : 'drum';
-    dot = !!sounds[k]?.sampleId;
+    dot = !!project.value.patterns[editPattern.value]?.lanes[k]?.some((x) => x);
   } else if (fxMode) {
     const d = FX_DEFS[k];
     label = d ? d.label : '—';
@@ -84,16 +85,19 @@ export function Pad({ k }: { k: number }) {
   } else if (keyPick) {
     lastKeyVer.value;
     lit = (lastKey[sel] ?? 0) === k;
-    label = keyLabel(sounds[sel], k);
+    label = keyLabel(sounds[sel], k, project.value);
     sub = k === (lastKey[sel] ?? 0) ? 'write' : '';
   } else if (writing) {
     const d = getStep(project.value, editPattern.value, sel, k);
     lit = !!d;
     dot = !!d && hasExtras(d);
-    label = d ? stepLabel(sounds[sel], d) : '';
+    label = d ? stepLabel(sounds[sel], d, project.value) : '';
   } else {
     const s = sounds[sel];
     dot = s?.kind === 'drum' ? k < (s.slices.length > 1 ? s.slices.length - 1 : 16) : k === 0;
+    label = s?.kind === 'melodic' ? keyLabel(s, k, project.value) : shortHit(s?.hitNames?.[k]);
+    if (isTonic(s, k, project.value)) cls += ' tonic';
+    cls += ' m-play';
   }
   const mode = keyPick ? 'sound' : soundMode ? 'sound' : fxMode ? 'fx' : patMode ? 'pattern' : bpmMode ? 'bpm' : writing ? 'write' : '';
   const on = pressed || (soundMode && lit);

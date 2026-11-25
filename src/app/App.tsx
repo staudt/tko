@@ -8,7 +8,7 @@ import { BpmSheet } from '../ui/BpmSheet';
 import { StepSheet } from '../ui/StepSheet';
 import { startPlayhead } from '../ui/playhead';
 import { canRedo, canUndo, redo, undo } from '../store/project';
-import { knobSpecs } from '../ui/knobMap';
+import { hintText, knobSpecs } from '../ui/knobMap';
 import { attachRouter } from '../ui/input/router';
 import { handlers } from '../ui/controls';
 import { SettingsSheet } from '../ui/SettingsSheet';
@@ -24,6 +24,7 @@ export function KnobRow() {
       </div>
       <div class="readout" data-testid="readout">
         <div class="ro-title">{title}</div>
+        <div class="ro-hint" data-testid="hint">{hintText()}</div>
       </div>
       <div class="knob-col">
         <Knob letter="B" testId="knob-b" label={b.label} value={b.value} def={b.def} disabled={b.disabled} onChange={b.onChange} />
@@ -64,6 +65,7 @@ export function Instrument() {
         <FnButton id="fn:sound" label="SOUND" icon="sound" />
         <FnButton id="fn:pattern" label="PATTERN" icon="pattern" />
         <FnButton id="fn:bpm" label="BPM" icon="bpm" />
+        <FnButton id="fn:sample" label="SAMPLE" icon="sample" />
       </div>
       <PadGrid />
       <SoundSheet />

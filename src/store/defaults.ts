@@ -19,6 +19,8 @@ export function defaultProject(): Project {
     bpm: 120,
     swing: 50,
     volume: 0.8,
+    scale: 'chromatic',
+    key: 0,
     sounds: Array.from({ length: SOUNDS }, (_, i) => ({ ...emptySound(i), sampleId: `${FACTORY_PREFIX}${i}` })),
     patterns: Array.from({ length: PATTERNS }, emptyPattern),
     chain: [0],

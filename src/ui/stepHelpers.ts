@@ -1,5 +1,10 @@
 // Pure helpers for the step sequencer UI (names, lengths, chain text, lock mapping).
 import type { Sound, StepData } from '../store/types';
+import { scaleOffsets, type ScaleId } from '../store/scales';
+
+/** Project key + scale (only the two fields the labels need). */
+export type Tune = { scale: ScaleId; key: number };
+const CHROMATIC: Tune = { scale: 'chromatic', key: 0 };
 
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -22,10 +27,16 @@ export function keyCount(keys: number): number {
 }
 
 /** Label of one key of a sound: note name (melodic) or hit name (drum). */
-export function keyLabel(s: Sound | undefined, k: number): string {
+export function keyLabel(s: Sound | undefined, k: number, tune: Tune = CHROMATIC): string {
   if (!s) return `${k + 1}`;
-  if (s.kind === 'melodic') return noteName(s.root + k);
+  if (s.kind === 'melodic') return noteName(s.root + tune.key + (scaleOffsets(tune.scale)[k] ?? k));
   return shortHit(s.hitNames?.[k]) || `${k + 1}`;
+}
+
+/** True for the tonic keys (octaves of the scale root) of a melodic sound. */
+export function isTonic(s: Sound | undefined, k: number, tune: Tune = CHROMATIC): boolean {
+  if (!s || s.kind !== 'melodic') return false;
+  return (scaleOffsets(tune.scale)[k] ?? k) % 12 === 0;
 }
 
 /** Hit names are shortened to fit a pad: first word, 5 characters. */
@@ -35,10 +46,10 @@ export function shortHit(n: string | undefined): string {
 }
 
 /** Tiny label shown on a filled step pad. */
-export function stepLabel(s: Sound | undefined, d: StepData): string {
+export function stepLabel(s: Sound | undefined, d: StepData, tune: Tune = CHROMATIC): string {
   const k = lowestKey(d.keys);
   if (k < 0) return '';
-  const base = keyLabel(s, k);
+  const base = keyLabel(s, k, tune);
   return keyCount(d.keys) > 1 ? `${base}+` : base;
 }
 

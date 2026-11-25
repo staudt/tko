@@ -108,6 +108,9 @@ export class Engine {
 
   /** Frame of the latest live hit per sound and key (for flam suppression while recording). */
   private readonly lastLive = new Float64Array(SOUNDS * KEYS).fill(-1e12);
+  /** Melodic key -> semitone offset (scale) and project transposition. */
+  private readonly scale = new Int8Array(KEYS).map((_, k) => k);
+  private transpose = 0;
 
   // FX.
   private readonly reverb: Reverb;
@@ -217,6 +220,10 @@ export class Engine {
         }
         this.bpm = Math.min(300, Math.max(30, cmd.bpm));
         this.swing = Math.min(75, Math.max(50, cmd.swing));
+        break;
+      case 'scale':
+        for (let k = 0; k < KEYS; k++) this.scale[k] = Math.max(-48, Math.min(48, Math.round(cmd.offsets[k] ?? k)));
+        this.transpose = Math.max(-12, Math.min(12, Math.round(cmd.key)));
         break;
       case 'metronome':
         this.metronome = cmd.on;
@@ -456,7 +463,7 @@ export class Engine {
     } else {
       from = Math.floor(st.start * n);
       to = Math.ceil(st.end * n);
-      semis += key;
+      semis += this.scale[key]! + this.transpose;
     }
     // Choke: the same drum slice retriggers; enforce the per-sound voice cap (oldest first).
     let count = 0;

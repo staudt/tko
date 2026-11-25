@@ -1,3 +1,4 @@
+import { scaleOffsets } from '../../src/store/scales';
 // Offline render tests for the engine core (src/engine/core.ts): timing, pitch, slices, chords, locks,
 // chains, live play, voice stealing, resample and punch FX. Runs in Node, no browser.
 import { describe, expect, it } from 'vitest';
@@ -110,10 +111,11 @@ describe('melodic pitch', () => {
   const sr = 48000;
   const f0 = 220;
   /** Plays key k (with optional lock / sound pitch) on step 0 and measures the pitch of the sustained part. */
-  function measure(key: number, opts: { lockA?: number; pitch?: number; sr?: number } = {}): number {
+  function measure(key: number, opts: { lockA?: number; pitch?: number; sr?: number; scale?: { offsets: number[]; key: number } } = {}): number {
     const rate = opts.sr ?? sr;
     const p = withStep(emptyPattern(), MEL, 0, keyMask(key), opts.lockA === undefined ? {} : { lockA: opts.lockA });
-    const r = render([...sineFixture(rate, f0, p, 3, { pitch: opts.pitch ?? 0 }), PLAY], 0.6, { sr: rate });
+    const scale: EngineCommand[] = opts.scale ? [{ type: 'scale', ...opts.scale }] : [];
+    const r = render([...scale, ...sineFixture(rate, f0, p, 3, { pitch: opts.pitch ?? 0 }), PLAY], 0.6, { sr: rate });
     return estimatePitchHz(r.left, rate, ms(rate, 0.1), ms(rate, 0.5));
   }
 
@@ -122,6 +124,12 @@ describe('melodic pitch', () => {
       const hz = measure(k);
       expect(Math.abs(cents(hz, f0 * 2 ** (k / 12))), `key ${k}: ${hz.toFixed(2)} Hz`).toBeLessThan(5);
     }
+  });
+
+  it('scale offsets and project key map keys to scale degrees', () => {
+    const minPent = scaleOffsets('minPent');
+    // key 6 of minor pentatonic = 12 + 3 = 15 semitones; project key +2
+    expect(Math.abs(cents(measure(6, { scale: { offsets: minPent, key: 2 } }), f0 * 2 ** (17 / 12)))).toBeLessThan(5);
   });
 
   it('is accurate at 44.1 kHz', () => {

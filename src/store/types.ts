@@ -1,6 +1,7 @@
 // Project model (main thread). Immutable: every edit makes new objects, so the engine sync and undo
 // can compare by identity.
 import type { SoundKind } from '../engine/protocol';
+import type { ScaleId } from './scales';
 
 export const SCHEMA_VERSION = 1;
 
@@ -42,6 +43,10 @@ export type Project = {
   swing: number;
   /** Master volume 0..1. */
   volume: number;
+  /** Scale the 16 keys of melodic sounds walk through. */
+  scale: ScaleId;
+  /** Transposition of melodic sounds in semitones (0..11, the project key). */
+  key: number;
   sounds: readonly Sound[];
   patterns: readonly Pattern[];
   /** Patterns played in order (at least one). */

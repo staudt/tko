@@ -23,3 +23,12 @@
 - Tests: `tests/unit/settings.test.ts`, `tests/e2e/rec.spec.ts`. Screenshots: `docs/screenshots/{rec-armed,settings,calibrate}-390x844.png`.
 
 **Try on the phone:** do the calibration a few times (with speaker and with headphones; Bluetooth especially) and check the offsets agree; arm REC, play, finger-drum on the beat and listen whether recorded hits land where you played them (adjust latency +/-); hits near the end of a pattern landing on step 1 of the next; held melodic notes get a length; metronome click level and timing; one Undo removes a whole take.
+
+## UI batch — notes, scales, erase, FX record (2026-11-25)
+- Melodic pads show note names (project key + scale aware, tonic keys accented); drum pads show hit names. SOUND sheet has Key and Scale chips (undoable, LCD "KEY D MINOR PENT..."); long-press a sound card -> "Clear in pattern NN".
+- SAMPLE button added to the function row (placeholder "SAMPLING SOON" for Phase 4); REC-hold+pad is now live erase while playing (`erase:N` undo step; REC+FX clears the FX lane). `src/ui/stepTicker.ts` is the shared rAF heard-step watcher.
+- FX record: armed + playing, FX + pad k writes fx lane k on the press step and every passed step (part of the take's undo step).
+- Step sheet is a quick note picker: tap key = only that key and close; hold key (400 ms) = toggle chord member. Length/locks removed from the sheet. SOUND-held pad dot = sound has notes in the edit pattern. One-line gesture hint under the LCD readout title.
+- Tests: new `tests/e2e/notes.spec.ts`, helper unit tests. Screenshots: `docs/screenshots/{notes,sound-sheet}-390x844.png`.
+
+**Try on the phone:** erase feel (does the key vanish just as the playhead passes?), FX recording alignment vs. what you heard, key/scale note names vs. what you hear, tap vs. hold timing in the step sheet, hint line legibility.

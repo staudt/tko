@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chainText, hasExtras, keyCount, keyLabel, knobToPitch, knobToTone, lenBetween, lowestKey, noteName, pitchToKnob, stepLabel, toneToKnob } from '../../src/ui/stepHelpers';
+import { chainText, hasExtras, keyCount, keyLabel, knobToPitch, knobToTone, lenBetween, isTonic, lowestKey, noteName, pitchToKnob, stepLabel, toneToKnob } from '../../src/ui/stepHelpers';
 import { emptySound } from '../../src/store/defaults';
 
 describe('step helpers', () => {
@@ -24,6 +24,18 @@ describe('step helpers', () => {
     const d = { ...emptySound(9), hitNames: ['Kick Deep', 'Snare'] };
     expect(keyLabel(d, 0)).toBe('Kick');
     expect(keyLabel(d, 5)).toBe('6');
+  });
+  it('names notes with project key and scale', () => {
+    const m = emptySound(0);
+    expect(keyLabel(m, 0, { scale: 'minPent', key: 2 })).toBe('D4');
+    expect(keyLabel(m, 1, { scale: 'minPent', key: 2 })).toBe('F4');
+    expect(keyLabel(m, 5, { scale: 'minPent', key: 2 })).toBe('D5');
+    expect(stepLabel(m, { keys: 0b10 }, { scale: 'major', key: 0 })).toBe('D4');
+    expect(isTonic(m, 0, { scale: 'minPent', key: 2 })).toBe(true);
+    expect(isTonic(m, 5, { scale: 'minPent', key: 2 })).toBe(true);
+    expect(isTonic(m, 1, { scale: 'minPent', key: 2 })).toBe(false);
+    expect(isTonic(m, 12, { scale: 'chromatic', key: 0 })).toBe(true);
+    expect(isTonic(emptySound(9), 0)).toBe(false);
   });
   it('formats chains and maps locks', () => {
     expect(chainText([0, 2, 1])).toBe('CHAIN 1-3-2');

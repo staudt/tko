@@ -6,6 +6,7 @@ import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
 import { project } from '../store/project';
 import { packPattern, soundParams } from '../store/pack';
+import { scaleOffsets } from '../store/scales';
 import type { Project } from '../store/types';
 import { getSample } from '../store/samples';
 import { ensureRunning, getAudioContext } from '../platform/audio';
@@ -110,6 +111,7 @@ export function ensureSample(id: string | null): Promise<void> {
 function syncAll(p: Project): void {
   post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
   post({ type: 'volume', gain: p.volume });
+  post({ type: 'scale', offsets: scaleOffsets(p.scale), key: p.key });
   p.patterns.forEach((pat, i) => post({ type: 'pattern', index: i, data: packPattern(pat) }));
   post({ type: 'chain', patterns: [...p.chain], now: true });
   p.sounds.forEach((s, i) => {
@@ -126,6 +128,7 @@ function startSync(): void {
     else {
       if (p.bpm !== prev.bpm || p.swing !== prev.swing) post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
       if (p.volume !== prev.volume) post({ type: 'volume', gain: p.volume });
+      if (p.scale !== prev.scale || p.key !== prev.key) post({ type: 'scale', offsets: scaleOffsets(p.scale), key: p.key });
       if (p.patterns !== prev.patterns) p.patterns.forEach((pat, i) => pat !== prev!.patterns[i] && post({ type: 'pattern', index: i, data: packPattern(pat) }));
       if (p.chain !== prev.chain) post({ type: 'chain', patterns: [...p.chain] });
       if (p.sounds !== prev.sounds)

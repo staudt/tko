@@ -1,3 +1,4 @@
+import { isScaleId } from './scales';
 // Project persistence: raw IndexedDB (no dependency). Autosaves the current project, keeps a rolling
 // version history, and validates/repairs whatever it loads. Main thread only (not audio-thread code).
 import { PATTERNS, SOUNDS, STEPS } from '../engine/protocol';
@@ -138,6 +139,8 @@ export function migrate(raw: unknown): Project | null {
     bpm: num(raw.bpm, 30, 300, 120),
     swing: num(raw.swing, 50, 75, 50),
     volume: num(raw.volume, 0, 1, 0.8),
+    scale: isScaleId(raw.scale) ? raw.scale : 'chromatic',
+    key: Math.round(num(raw.key, 0, 11, 0)),
     sounds,
     patterns,
     chain: chain.length ? chain : [0],

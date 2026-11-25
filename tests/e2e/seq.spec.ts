@@ -117,7 +117,7 @@ test.describe('sequencer (touch)', () => {
     expect((await lastPattern(page))!.keys[5]).toBe(0);
   });
 
-  test('long-press a step opens the Step sheet; a second key makes a chord', async ({ page }) => {
+  test('long-press a step opens the Step sheet; tap a key sets it and closes', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'WRITE'));
@@ -126,15 +126,9 @@ test.describe('sequencer (touch)', () => {
     await page.waitForTimeout(650);
     await expect(page.getByRole('dialog', { name: 'Step' })).toBeVisible();
     await t.up(1);
-    // opening the sheet created nothing; toggle key 1, then key 5
-    await page.getByTestId('key-1').tap();
-    await expect.poll(async () => (await lastPattern(page))?.keys[6]).toBe(1);
+    // opening the sheet created nothing
     await page.getByTestId('key-5').tap();
-    await expect.poll(async () => (await lastPattern(page))?.keys[6]).toBe(1 | 16);
-    await page.getByRole('button', { name: 'Longer' }).tap();
-    await expect.poll(async () => (await lastPattern(page))?.len[6]).toBe(1);
-    await page.getByRole('button', { name: 'Clear step' }).tap();
-    await expect.poll(async () => (await lastPattern(page))?.keys[6]).toBe(0);
+    await expect.poll(async () => (await lastPattern(page))?.keys[6]).toBe(16);
     await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
   });
 

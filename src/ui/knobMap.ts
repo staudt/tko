@@ -3,7 +3,8 @@ import { apply, project, updateSound } from '../store/project';
 import { fxKnob } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { editPattern, fxPad, fxXY, heldStep, knobMode, lastKey, lastKeyVer, selectedSound, writeMode } from './state';
+import { editPattern, fxPad, fxXY, heldControls, heldStep, knobMode, lastKey, lastKeyVer, recArmed, selectedSound, writeMode } from './state';
+import { playing } from '../engine/host';
 import { getStep, setLock, setStep } from '../store/edit';
 import { knobToPitch, knobToTone, pitchToKnob, toneToKnob } from './stepHelpers';
 import { markUsed, setBpm, setSwing } from './controls';
@@ -21,6 +22,18 @@ const key = (k: 'A' | 'B', first: boolean, i: number) => {
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 const toneText = (t: number) => (Math.abs(t) < 0.005 ? 'OPEN' : `${t < 0 ? 'LP' : 'HP'} ${Math.round(Math.abs(t) * 100)}`);
+
+/** One-line gesture hint under the readout title. */
+export function hintText(): string {
+  const mode = knobMode.value;
+  if (mode === 'fx') return 'knobs: effect X / Y';
+  if (mode === 'bpm') return 'A: tempo · B: swing · pad: volume';
+  if (mode === 'trim') return project.value.sounds[selectedSound.value]?.kind === 'drum' ? 'A: volume · pad: select sound' : 'A: trim start · B: trim end · pad: select';
+  if (mode === 'lock') return 'A: lock pitch · B: lock tone · tap: length';
+  if ((recArmed.value && playing.value) || heldControls.value.has('btn:rec')) return 'REC+pad: erase · FX+pad: record fx';
+  if (writeMode.value) return 'tap: step · hold+knob: lock · hold+tap: length';
+  return 'hold SOUND+pad: select · tap WRITE: steps';
+}
 
 export function knobSpecs(): KnobSpecs {
   const mode = knobMode.value;
@@ -125,7 +138,7 @@ export function knobSpecs(): KnobSpecs {
   const pitch = s?.pitch ?? 0;
   const tone = s?.tone ?? 0;
   return {
-    title: s ? (writeMode.value ? `WRITE · ${keyLabel(s, (lastKeyVer.value, lastKey[i] ?? 0))}` : `${pad(i)} ${s.name}`).toUpperCase() : pad(i),
+    title: s ? (writeMode.value ? `WRITE · ${keyLabel(s, (lastKeyVer.value, lastKey[i] ?? 0), p)}` : `${pad(i)} ${s.name}`).toUpperCase() : pad(i),
     a: {
       label: 'Pitch',
       text: `PITCH ${signed(Math.round(pitch))}`,

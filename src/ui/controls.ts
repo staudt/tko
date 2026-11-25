@@ -8,10 +8,10 @@ import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
 import { getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
 import { chainText, lenBetween } from './stepHelpers';
-import { clearHits, recordHit, recordRelease, toggleArm } from './recorder';
+import { clearHits, eraseBegin, eraseDown, eraseUp, recordFxDown, recordFxUp, recordHit, recordRelease, toggleArm } from './recorder';
 import './settings';
 
-type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'none' };
+type PadAction = { t: 'note'; sound: number; key: number } | { t: 'fx'; fx: number } | { t: 'erase' } | { t: 'none' };
 const padActions = new Map<number, PadAction>();
 /** fn/FX buttons currently down: press time and whether anything else was touched meanwhile. */
 const fnDown = new Map<string, { t: number; used: boolean }>();
@@ -109,7 +109,13 @@ export const handlers: RouterHandlers = {
       const k = Number(id.slice(4));
       markUsed();
       if (h.has('btn:rec')) {
-        // REC held is reserved for sampling (Phase 4): no arming, no note.
+        // REC held + pad while playing: live erase of that key (silent).
+        if (playing.peek()) {
+          eraseDown(pid, selectedSound.peek(), k);
+          padActions.set(pid, { t: 'erase' });
+        } else padActions.set(pid, { t: 'none' });
+      } else if (h.has('fn:sample')) {
+        // Phase 4 will sample into the chosen pad here.
         lcdMessage('SAMPLING SOON');
         padActions.set(pid, { t: 'none' });
       } else if (h.has('fn:sound')) {
@@ -121,13 +127,14 @@ export const handlers: RouterHandlers = {
         setLastKey(sound, k);
         playKey(sound, k, true);
         padActions.set(pid, { t: 'note', sound, key: k });
-        lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k).toUpperCase()}`);
+        lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k, project.peek()).toUpperCase()}`);
       } else if (h.has('btn:fx')) {
         if (k < FX_IDS.length) {
           fxPad.value = k;
           fxXY.value = [...FX_DEFAULT_XY[FX_IDS[k]!]];
           fxPress(k, true);
           padActions.set(pid, { t: 'fx', fx: k });
+          recordFxDown(pid, k, e.timeStamp);
         } else padActions.set(pid, { t: 'none' });
       } else if (h.has('fn:pattern')) {
         const d = chainDraft.peek();
@@ -162,6 +169,7 @@ export const handlers: RouterHandlers = {
     // function buttons: remember press time; combos with anything already held make it "used".
     fnDown.set(id, { t: performance.now(), used: h.size > 1 });
     if (id === 'fn:pattern') chainDraft.value = [];
+    if (id === 'btn:rec') eraseBegin();
     if (id.startsWith('fn:') || id === 'btn:fx') markUsedOthers(id);
   },
   up(id, pid, cancelled) {
@@ -173,8 +181,10 @@ export const handlers: RouterHandlers = {
         recordRelease(pid);
       } else if (a?.t === 'fx') {
         fxPress(a.fx, false);
+        recordFxUp(pid);
         if (fxPad.peek() === a.fx) fxPad.value = null;
       }
+      if (a?.t === 'erase') eraseUp(pid);
       stepUp(pid, cancelled);
       return;
     }
@@ -185,6 +195,7 @@ export const handlers: RouterHandlers = {
       if (id === 'fn:sound') soundSheetOpen.value = true;
       else if (id === 'fn:pattern') patternSheetOpen.value = true;
       else if (id === 'fn:bpm') bpmSheetOpen.value = true;
+      else if (id === 'fn:sample') lcdMessage('SAMPLING SOON');
     }
     if (id === 'btn:rec' && f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) toggleArm();
     // WRITE toggles on a tap; held with a pad it chose the write key instead.

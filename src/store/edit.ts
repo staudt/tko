@@ -3,6 +3,7 @@
 import { PATTERNS, SOUNDS, STEPS } from '../engine/protocol';
 import { emptyPattern } from './defaults';
 import type { Lane, Pattern, Project, StepData } from './types';
+import type { ScaleId } from './scales';
 
 const inRange = (n: number, max: number) => Number.isInteger(n) && n >= 0 && n < max;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -143,3 +144,18 @@ export function addKey(p: Project, pat: number, snd: number, step: number, key: 
   if (cur && cur.keys & bit) return p;
   return setStep(p, pat, snd, step, { ...(cur ?? {}), keys: (cur?.keys ?? 0) | bit });
 }
+
+/** Remove one key from a step (live erase); the step is cleared when no key is left. */
+export function removeKey(p: Project, pat: number, snd: number, step: number, key: number): Project {
+  const cur = getStep(p, pat, snd, step);
+  const bit = 1 << clamp(key, 0, 15);
+  if (!cur || !(cur.keys & bit)) return p;
+  const keys = cur.keys & ~bit;
+  return setStep(p, pat, snd, step, keys ? { ...cur, keys } : null);
+}
+
+export const setScale = (p: Project, scale: ScaleId): Project => (scale === p.scale ? p : { ...p, scale });
+export const setKey = (p: Project, key: number): Project => {
+  const k = ((Math.round(key) % 12) + 12) % 12;
+  return k === p.key ? p : { ...p, key: k };
+};
