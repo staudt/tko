@@ -6,11 +6,12 @@ export function equalSlices(count = 16): number[] {
 }
 
 /**
- * 17 boundaries in 0..1 (first 0, last 1, ascending) placed at detected onsets (spectral flux /
- * energy rise). With fewer than `count` onsets the remaining slices split the longest regions;
- * with more, the strongest onsets win.
+ * Boundaries in 0..1 (first 0, last 1, ascending) placed at detected onsets (energy rise).
+ * With more than `count` onsets the strongest win. With fewer: `fill` (default) splits the longest
+ * regions until there are `count` slices (count + 1 boundaries); `fill: false` keeps only the hits
+ * found (at least 1 slice), ignoring an onset right at the start (already boundary 0).
  */
-export function autoSlices(l: Float32Array, rate: number, count = 16): number[] {
+export function autoSlices(l: Float32Array, rate: number, count = 16, fill = true): number[] {
   const n = l.length;
   const chosen: number[] = [];
   if (n > 0 && count > 1) {
@@ -61,14 +62,15 @@ export function autoSlices(l: Float32Array, rate: number, count = 16): number[] 
       if (pos / n > 0 && pos / n < 1) bounds.push({ pos: pos / n, str: nov[f]! });
     }
     bounds.sort((a, b) => b.str - a.str);
-    for (const b of bounds.slice(0, count - 1)) chosen.push(b.pos);
+    const startZone = fill ? 0 : (0.03 * rate) / n; // a hit in the first 30 ms is the start itself
+    for (const b of bounds.filter((x) => x.pos > startZone).slice(0, count - 1)) chosen.push(b.pos);
   }
   const all = [0, ...chosen.sort((a, b) => a - b), 1];
   // enforce strict ascent (drop duplicates)
   const out: number[] = [0];
   for (const v of all.slice(1)) if (v > out[out.length - 1]!) out.push(v);
   if (out[out.length - 1] !== 1) out.push(1);
-  while (out.length < count + 1) {
+  while (fill && out.length < count + 1) {
     let bi = 0;
     for (let i = 1; i < out.length - 1; i++) if (out[i + 1]! - out[i]! > out[bi + 1]! - out[bi]!) bi = i;
     out.splice(bi + 1, 0, (out[bi]! + out[bi + 1]!) / 2);

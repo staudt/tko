@@ -26,6 +26,13 @@ export function keyCount(keys: number): number {
   return n;
 }
 
+/** Number of playable keys: slices of a drum sound (1..16), 16 otherwise. */
+export function keyLimit(s: Sound | undefined): number {
+  return s?.kind === 'drum' && s.slices.length >= 2 ? Math.min(16, s.slices.length - 1) : 16;
+}
+/** False for drum keys past the last slice (silent). */
+export const keyActive = (s: Sound | undefined, k: number): boolean => k < keyLimit(s);
+
 /** Label of one key of a sound: note name (melodic) or hit name (drum). */
 export function keyLabel(s: Sound | undefined, k: number, tune: Tune = CHROMATIC): string {
   if (!s) return `${k + 1}`;

@@ -7,16 +7,22 @@ import { getSample, type Sample } from '../store/samples';
 import { peaks } from '../dsp/peaks';
 import { getAudioContext } from '../platform/audio';
 import { previewSample, previewState } from './preview';
+import { lcdMessage } from '../lcd/message';
 
 const MIN_GAP = 0.004;
 const MARKER_REACH = 12; // px
 const HANDLE_REACH = 30; // px, so the grab area is >= 60 px wide
 const MIN_GAP_S = 0.02;
+const LONG_MS = 450;
+const MERGE_PX = 8;
+const DOUBLE_MS = 320;
+const DOUBLE_PX = 24;
+const MAX_SLICES = 16;
 const fmt = (t: number) => `${t.toFixed(2)} s`;
 let dragN = 0;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-type Drag = { id: number; kind: 'start' | 'end' | 'slice'; idx: number; key: string; moved: boolean; x0: number };
+type Drag = { id: number; kind: 'start' | 'end' | 'slice'; idx: number; key: string; moved: boolean; x0: number; timer: ReturnType<typeof setTimeout> | null; fired: boolean };
 
 export function Waveform({ slot }: { slot: number }) {
   const s = project.value.sounds[slot];
@@ -24,6 +30,19 @@ export function Waveform({ slot }: { slot: number }) {
   const wrap = useRef<HTMLDivElement>(null);
   const cv = useRef<HTMLCanvasElement>(null);
   const drag = useRef<Drag | null>(null);
+  const lastTap = useRef({ t: 0, x: 0 });
+  const [note, setNote] = useState('');
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = (txt: string) => {
+    lcdMessage(txt);
+    setNote(txt);
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    noteTimer.current = setTimeout(() => setNote(''), 1400);
+  };
+  useEffect(() => () => {
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    if (drag.current?.timer) clearTimeout(drag.current.timer);
+  }, []);
   const head = useRef<HTMLDivElement>(null);
   const [bubble, setBubble] = useState<{ kind: 'start' | 'end'; txt: string } | null>(null);
   const [smp, setSmp] = useState<Sample | null>(null);
@@ -133,9 +152,28 @@ export function Waveform({ slot }: { slot: number }) {
         }
       }
       if (best > 0) {
-        drag.current = { id: e.pointerId, kind: 'slice', idx: best, key: `wf:${slot}:${++dragN}`, moved: false, x0: e.clientX };
+        drag.current = { id: e.pointerId, kind: 'slice', idx: best, key: `wf:${slot}:${++dragN}`, moved: false, x0: e.clientX, timer: null, fired: false };
+        const d = drag.current;
+        d.timer = setTimeout(() => {
+          d.timer = null;
+          if (drag.current !== d || d.moved) return;
+          d.fired = true;
+          removeMarker(d.idx, null);
+          flash('SLICE REMOVED');
+        }, LONG_MS);
         return;
       }
+      const now = performance.now();
+      const lt = lastTap.current;
+      if (now - lt.t < DOUBLE_MS && Math.abs(e.clientX - lt.x) < DOUBLE_PX) {
+        lastTap.current = { t: 0, x: 0 };
+        if (sl.length - 1 < MAX_SLICES) {
+          addMarker(v);
+          flash('SLICE ADDED');
+        }
+        return;
+      }
+      lastTap.current = { t: now, x: e.clientX };
       previewSlice(sliceAt(v));
     } else if (drum) {
       if (sampleId) void previewSample(sampleId, 0, 1);
@@ -149,6 +187,29 @@ export function Waveform({ slot }: { slot: number }) {
       } else void previewSample(sampleId, v >= s.start && v < s.end ? v : s.start, s.end);
     }
   };
+  /** Removes boundary `idx` (merging two slices); `merge` joins it to the running drag's undo step. */
+  const removeMarker = (idx: number, merge: string | null) =>
+    apply(
+      (p) => {
+        const cur = p.sounds[slot];
+        if (!cur || cur.slices.length <= 2 || idx < 1 || idx > cur.slices.length - 2) return p;
+        return updateSound(p, slot, { slices: cur.slices.filter((_, i) => i !== idx) });
+      },
+      { merge },
+    );
+  const addMarker = (v: number) =>
+    apply((p) => {
+      const cur = p.sounds[slot];
+      if (!cur || cur.slices.length < 2 || cur.slices.length - 1 >= MAX_SLICES) return p;
+      const i = cur.slices.findIndex((x) => x > v);
+      if (i < 1) return p;
+      const lo = cur.slices[i - 1]!;
+      const hi = cur.slices[i]!;
+      if (hi - lo < 2 * MIN_GAP) return p;
+      const arr = cur.slices.slice();
+      arr.splice(i, 0, clamp(v, lo + MIN_GAP, hi - MIN_GAP));
+      return updateSound(p, slot, { slices: arr });
+    });
   const previewSlice = (k: number) => {
     if (!sampleId) return;
     const a = sl ? (sl[k] ?? 0) : k / 16;
@@ -158,7 +219,7 @@ export function Waveform({ slot }: { slot: number }) {
   const minGap = () => (smp && smp.l.length > 0 ? Math.min(0.25, MIN_GAP_S / (smp.l.length / smp.rate)) : 0.01);
   const timeOf = (v: number) => fmt(v * (smp ? smp.l.length / smp.rate : 0));
   const beginDrag = (e: PointerEvent, kind: 'start' | 'end') => {
-    drag.current = { id: e.pointerId, kind, idx: 0, key: `wf:${slot}:${++dragN}`, moved: true, x0: e.clientX };
+    drag.current = { id: e.pointerId, kind, idx: 0, key: `wf:${slot}:${++dragN}`, moved: true, x0: e.clientX, timer: null, fired: false };
     setBubble({ kind, txt: timeOf(kind === 'start' ? s.start : s.end) });
   };
   const onMove = (e: PointerEvent) => {
@@ -167,6 +228,8 @@ export function Waveform({ slot }: { slot: number }) {
     if (!d.moved) {
       if (Math.abs(e.clientX - d.x0) < 3) return;
       d.moved = true;
+      if (d.timer) clearTimeout(d.timer);
+      d.timer = null;
     }
     const v = frac(e.clientX);
     const g = minGap();
@@ -191,7 +254,20 @@ export function Waveform({ slot }: { slot: number }) {
     const d = drag.current;
     if (d && d.id === e.pointerId) {
       drag.current = null;
-      if (!d.moved && d.kind === 'slice') {
+      if (d.timer) clearTimeout(d.timer);
+      if (d.kind === 'slice' && d.moved && wrap.current && box.current) {
+        // dropped onto a neighbouring marker: merge the two
+        const cur = project.peek().sounds[slot]?.slices ?? [];
+        const w = box.current.getBoundingClientRect().width;
+        const x = cur[d.idx];
+        if (x !== undefined) {
+          const near = [d.idx - 1, d.idx + 1].some((j) => cur[j] !== undefined && Math.abs(cur[j]! - x) * w <= MERGE_PX);
+          if (near) {
+            removeMarker(d.idx, d.key);
+            flash('SLICE REMOVED');
+          }
+        }
+      } else if (!d.moved && !d.fired && d.kind === 'slice') {
         // a tap on a marker: preview the slice that starts there
         previewSlice(d.idx);
       }
@@ -204,6 +280,11 @@ export function Waveform({ slot }: { slot: number }) {
       <div class="wf" ref={box} data-testid="wave" data-start={s.start.toFixed(4)} data-end={s.end.toFixed(4)}>
         <canvas ref={cv} class="wf-cv" />
         {sampleId && <div class="wf-play" ref={head} />}
+        {note && (
+          <span class="wf-note" data-testid="slice-note">
+            {note}
+          </span>
+        )}
         {!sampleId && <div class="wf-empty">empty slot</div>}
         {!drum && sampleId && (
           <>

@@ -5,7 +5,7 @@ import { previewSample, previewState, stopPreview } from './preview';
 import { sampleSheetOpen, sampling, samplingSlot, selectedSound } from './state';
 import { Sheet } from './Sheet';
 import { Waveform } from './Waveform';
-import { beginRecord, cropSlot, clearSlot, endRecord, importFile, MAX_RECORD_SECONDS, meter, normalizeSlot, resampleInto, resampleProgress, resampleState, restoreFactory, reverseSlot, setKind, sliceCurrent, usedSeconds } from './sampling';
+import { beginRecord, cropSlot, clearSlot, endRecord, importFile, MAX_RECORD_SECONDS, meter, restoreFactory, reverseSlot, setKind, sliceCurrent, usedSeconds } from './sampling';
 
 const pad2 = (n: number) => String(n + 1).padStart(2, '0');
 
@@ -37,7 +37,6 @@ export function SampleSheet() {
   const slot = selectedSound.value;
   const s = project.value.sounds[slot];
   const [editing, setEditing] = useState(false);
-  const [resN, setResN] = useState(1);
   const [confirm, setConfirm] = useState<'clear' | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const [lenS, setLenS] = useState(0);
@@ -65,11 +64,11 @@ export function SampleSheet() {
   const has = !!s?.sampleId;
   const drum = s?.kind === 'drum';
   const recHere = sampling.value && samplingSlot.value === slot;
-  const busy = resampleState.value !== 'idle';
   const used = usedSeconds.value;
   const full = used >= MAX_TOTAL_SECONDS;
   const pv = previewState.value;
   const isPlaying = pv.playing && pv.sampleId === s?.sampleId;
+  const nSlices = s && s.slices.length >= 2 ? s.slices.length - 1 : 16;
   const cropped = !!s && (s.start > 0.001 || s.end < 0.999);
 
   const rename = (v: string) => {
@@ -131,22 +130,28 @@ export function SampleSheet() {
             </div>
           </div>
           <Waveform slot={slot} />
-          <p class="hint">{!has ? 'Empty. Record, import or resample below.' : drum ? 'Tap a slice to hear it. Drag the markers to move them.' : 'Drag the handles to trim. Tap the wave to hear it from there.'}</p>
+          <p class="hint">{!has ? 'Empty. Record or import below.' : drum ? 'Tap a slice to hear it · drag markers · hold a marker to remove · double-tap to add' : 'Drag the handles to trim. Tap the wave to hear it from there.'}</p>
 
+          {drum && (
+            <div class="stepper" data-testid="slice-stepper">
+              <span class="lab">Slices</span>
+              <button class="wide" data-testid="slices-minus" aria-label="Fewer slices" disabled={!has || nSlices <= 1} onClick={() => void sliceCurrent(slot, { equal: nSlices - 1 })}>
+                −
+              </button>
+              <span class="cnt" data-testid="slice-count">{`${nSlices} slice${nSlices === 1 ? '' : 's'}`}</span>
+              <button class="wide" data-testid="slices-plus" aria-label="More slices" disabled={!has || nSlices >= 16} onClick={() => void sliceCurrent(slot, { equal: nSlices + 1 })}>
+                +
+              </button>
+            </div>
+          )}
           <div class="tools">
             {drum && (
               <>
                 <button class="wide" data-testid="auto-slice" disabled={!has} onClick={() => void sliceCurrent(slot, 'auto')}>
                   Auto-slice
                 </button>
-                <button class="wide" data-testid="equal-slices" disabled={!has} onClick={() => void sliceCurrent(slot, 'equal')}>
-                  Equal slices
-                </button>
               </>
             )}
-            <button class="wide" data-testid="normalize" disabled={!has} onClick={() => void normalizeSlot(slot)}>
-              Normalize
-            </button>
             <button class="wide" data-testid="reverse" disabled={!has} onClick={() => void reverseSlot(slot)}>
               Reverse
             </button>
@@ -159,10 +164,10 @@ export function SampleSheet() {
 
           <div class="setsec">Sources</div>
           <div class="tools">
-            <button class={`wide recbtn${recHere ? ' on' : ''}`} data-testid="sample-record" disabled={busy || (full && !recHere)} onClick={() => (recHere ? void endRecord() : void beginRecord(slot))}>
+            <button class={`wide recbtn${recHere ? ' on' : ''}`} data-testid="sample-record" disabled={full && !recHere} onClick={() => (recHere ? void endRecord() : void beginRecord(slot))}>
               {recHere ? 'Stop' : 'Record'}
             </button>
-            <button class="wide" data-testid="import-btn" disabled={busy || recHere || full} onClick={() => file.current?.click()}>
+            <button class="wide" data-testid="import-btn" disabled={recHere || full} onClick={() => file.current?.click()}>
               Import file
             </button>
             <input
@@ -181,26 +186,6 @@ export function SampleSheet() {
             />
           </div>
           {recHere && <LevelMeter />}
-          <div class="resrow">
-            <div class="seg2" role="group" aria-label="Patterns to resample">
-              {[1, 2, 4].map((n) => (
-                <button key={n} class={`mini${resN === n ? ' on' : ''}`} data-testid={`resample-${n}`} aria-pressed={resN === n} onClick={() => setResN(n)}>
-                  {n}
-                </button>
-              ))}
-            </div>
-            <button class="wide" data-testid="resample-go" disabled={busy || recHere || full} onClick={() => void resampleInto(slot, resN)}>
-              {busy ? 'Resampling…' : `Resample ${resN} pattern${resN > 1 ? 's' : ''}`}
-            </button>
-          </div>
-          {busy && (
-            <div class="lvl" data-testid="resample-status">
-              <div class="lvl-bar">
-                <i style={{ width: `${Math.round(resampleProgress.value * 100)}%` }} />
-              </div>
-              <small>{resampleState.value === 'waiting' ? 'waiting for next pattern…' : 'capturing…'}</small>
-            </div>
-          )}
 
           <div class="tools">
             <button class="wide" data-testid="restore-factory" onClick={() => void restoreFactory(slot)}>

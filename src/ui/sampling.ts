@@ -9,11 +9,9 @@ import { MAX_RECORD_SECONDS, MicError, startRecording, type RecordingSession } f
 import { trimSilence } from '../platform/trim';
 import { crop, fadeEdges, limitLength, normalize, reverse } from '../dsp/process';
 import { autoSlices, equalSlices } from '../dsp/slice';
-import { playing, resample, togglePlay } from '../engine/host';
 import { lcdMessage } from '../lcd/message';
 import { sampling, samplingSlot } from './state';
 import { previewSample } from './preview';
-import { onStep } from './stepTicker';
 import { showToast } from './toast';
 
 export const HIST = 96;
@@ -147,14 +145,14 @@ export async function installSample(slot: number, name: string, s: Sample, sourc
     return;
   }
   const drum = project.peek().sounds[slot]?.kind === 'drum';
-  const slices = drum ? autoSlices(s.l, s.rate, 16) : [];
+  const slices = drum ? autoSlices(s.l, s.rate, 16, false) : [];
   apply((p) => updateSound(p, slot, { sampleId: id, name, start: 0, end: 1, slices, hitNames: undefined }));
   bump(s.l.length / s.rate);
   lcdMessage(`SAMPLED ${sid(slot)} ${secs(s)}S`, 2200);
   if (audition) void previewSample(id, 0, 1);
 }
 
-// ---- import / resample ---------------------------------------------------------------------------
+// ---- import ---------------------------------------------------------------------------
 
 export async function importFile(slot: number, file: File): Promise<void> {
   if (blockedByMemory()) return;
@@ -171,43 +169,6 @@ export async function importFile(slot: number, file: File): Promise<void> {
   }
 }
 
-/** 'idle' | 'waiting' (for the next pattern start) | 'capturing'. */
-export const resampleState = signal<'idle' | 'waiting' | 'capturing'>('idle');
-/** 0..1 progress of the capture. */
-export const resampleProgress = signal(0);
-
-export async function resampleInto(slot: number, patterns: number): Promise<void> {
-  if (resampleState.peek() !== 'idle' || blockedByMemory()) return;
-  const wasPlaying = playing.peek();
-  resampleState.value = wasPlaying ? 'waiting' : 'capturing';
-  resampleProgress.value = 0;
-  const dur = ((60 / project.peek().bpm) * 4) * patterns;
-  let t0 = wasPlaying ? 0 : performance.now();
-  const off = onStep(({ step }) => {
-    if (resampleState.peek() === 'waiting' && step === 0) {
-      resampleState.value = 'capturing';
-      t0 = performance.now();
-    }
-  });
-  const timer = setInterval(() => {
-    if (resampleState.peek() === 'capturing') resampleProgress.value = Math.min(1, (performance.now() - t0) / 1000 / dur);
-  }, 80);
-  try {
-    const p = resample(patterns);
-    if (!wasPlaying) await togglePlay();
-    const raw = await p;
-    const l = fadeEdges(normalize(limitLength(raw.l, raw.rate, MAX_SLOT_SECONDS), -1), raw.rate);
-    await installSample(slot, 'Resample', { l, rate: raw.rate }, 'resample', true);
-  } catch (e) {
-    lcdMessage('RESAMPLE FAILED');
-    showToast(`Resample failed${e instanceof Error ? `: ${e.message}` : '.'}`);
-  } finally {
-    off();
-    clearInterval(timer);
-    resampleState.value = 'idle';
-  }
-}
-
 // ---- editing the current sample ------------------------------------------------------------------
 
 export function setKind(slot: number, kind: 'melodic' | 'drum'): void {
@@ -217,18 +178,18 @@ export function setKind(slot: number, kind: 'melodic' | 'drum'): void {
   if (kind === 'drum' && s.slices.length < 2 && s.sampleId) void sliceCurrent(slot, 'auto', true);
 }
 
-export async function sliceCurrent(slot: number, how: 'auto' | 'equal', quiet = false): Promise<void> {
+export async function sliceCurrent(slot: number, how: 'auto' | { equal: number }, quiet = false): Promise<void> {
   const s = project.peek().sounds[slot];
   if (!s?.sampleId) return;
   let slices: number[];
-  if (how === 'equal') slices = equalSlices(16);
+  if (how !== 'auto') slices = equalSlices(how.equal);
   else {
     const smp = await getSample(s.sampleId);
     if (!smp) return;
-    slices = autoSlices(smp.l, smp.rate, 16);
+    slices = autoSlices(smp.l, smp.rate, 16, false);
   }
   apply((p) => updateSound(p, slot, { slices }));
-  if (!quiet) lcdMessage(how === 'auto' ? 'AUTO SLICED' : 'EQUAL SLICES');
+  if (!quiet) lcdMessage(how === 'auto' ? 'AUTO SLICED' : `${how.equal} SLICES`);
 }
 
 async function replaceAudio(slot: number, f: (smp: Sample, start: number, end: number) => Sample, patch: (s: Sample, cur: { start: number; end: number; slices: readonly number[] }) => object, label: string): Promise<void> {
@@ -245,8 +206,6 @@ async function replaceAudio(slot: number, f: (smp: Sample, start: number, end: n
   bump(out.l.length / out.rate);
   lcdMessage(label);
 }
-
-export const normalizeSlot = (slot: number) => replaceAudio(slot, (s) => ({ l: normalize(s.l, -1), rate: s.rate }), () => ({}), 'NORMALIZED');
 
 export const reverseSlot = (slot: number) =>
   replaceAudio(

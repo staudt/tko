@@ -7,7 +7,7 @@ import { getStep, patternDensity, patternIsEmpty } from '../store/edit';
 import type { Pattern } from '../store/types';
 import { PadPopover } from './PadPopover';
 import { targetPattern } from './erase';
-import { hasExtras, isTonic, keyLabel, shortHit, stepLabel } from './stepHelpers';
+import { hasExtras, isTonic, keyActive, keyLabel, shortHit, stepLabel } from './stepHelpers';
 
 export const Icon = ({ name }: { name: string }) => {
   const paths: Record<string, ComponentChildren> = {
@@ -131,9 +131,11 @@ export function Pad({ k }: { k: number }) {
     cls += k + 1 === lvl ? ' top' : '';
   } else if (keyPick) {
     lastKeyVer.value;
-    lit = (lastKey[sel] ?? 0) === k;
-    label = keyLabel(sounds[sel], k, project.value);
-    sub = k === (lastKey[sel] ?? 0) ? 'write' : '';
+    const act = keyActive(sounds[sel], k);
+    lit = act && (lastKey[sel] ?? 0) === k;
+    label = act ? keyLabel(sounds[sel], k, project.value) : '—';
+    sub = act && k === (lastKey[sel] ?? 0) ? 'write' : '';
+    if (!act) cls += ' none';
   } else if (writing) {
     const d = getStep(project.value, editPattern.value, sel, k);
     lit = !!d;
@@ -141,8 +143,10 @@ export function Pad({ k }: { k: number }) {
     label = d ? stepLabel(sounds[sel], d, project.value) : '';
   } else {
     const s = sounds[sel];
-    dot = s?.kind === 'drum' ? k < (s.slices.length > 1 ? s.slices.length - 1 : 16) : k === 0;
-    label = s?.kind === 'melodic' ? keyLabel(s, k, project.value) : shortHit(s?.hitNames?.[k]);
+    const act = keyActive(s, k);
+    dot = s?.kind === 'drum' ? act : k === 0;
+    label = !act ? '—' : s?.kind === 'melodic' ? keyLabel(s, k, project.value) : shortHit(s?.hitNames?.[k]);
+    if (!act) cls += ' none';
     if (isTonic(s, k, project.value)) cls += ' tonic';
     cls += ' m-play';
   }

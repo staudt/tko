@@ -77,3 +77,19 @@ describe('autoSlices', () => {
     asc(autoSlices(new Float32Array(0), R), 16);
   });
 });
+
+describe('fewer slices', () => {
+  it('autoSlices without fill keeps only detected hits', () => {
+
+    const rate = 44100;
+    const l = new Float32Array(rate * 2);
+    for (const t of [0, 0.5, 1.2]) for (let i = 0; i < 2000; i++) l[Math.round(t * rate) + i] = Math.sin(i * 0.3) * Math.exp(-i / 400);
+    const b = autoSlices(l, rate, 16, false);
+    expect(b.length).toBe(4); // 3 slices
+    expect(b[0]).toBe(0);
+    expect(b[3]).toBe(1);
+    expect(Math.abs(b[1]! - 0.25)).toBeLessThan(0.01);
+    expect(Math.abs(b[2]! - 0.6)).toBeLessThan(0.01);
+    expect(autoSlices(l, rate, 16).length).toBe(17);
+  });
+});

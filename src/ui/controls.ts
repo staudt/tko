@@ -2,7 +2,7 @@
 import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
-import { keyLabel } from './stepHelpers';
+import { keyActive, keyLabel } from './stepHelpers';
 import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, padMode, padPopover, queuedPattern, recHold, sampleSheetOpen, selectedSound, setLastKey, stepSheet, writeMode, type PadMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
@@ -51,6 +51,7 @@ export function selectSound(i: number): void {
 
 /** Short note preview (used when a step is turned on and in the step sheet). */
 export function audition(sound: number, key: number): void {
+  if (!keyActive(project.peek().sounds[sound], key)) return;
   playKey(sound, key, true);
   setTimeout(() => playKey(sound, key, false), 150);
 }
@@ -138,10 +139,12 @@ export const handlers: RouterHandlers = {
       } else if (h.has('btn:write')) {
         // WRITE held + pad: choose the key new steps are written with (and hear it while held).
         const sound = selectedSound.peek();
-        setLastKey(sound, k);
-        playKey(sound, k, true);
-        padActions.set(pid, { t: 'note', sound, key: k });
-        lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k, project.peek()).toUpperCase()}`);
+        if (keyActive(project.peek().sounds[sound], k)) {
+          setLastKey(sound, k);
+          playKey(sound, k, true);
+          padActions.set(pid, { t: 'note', sound, key: k });
+          lcdMessage(`WRITE ${keyLabel(project.peek().sounds[sound], k, project.peek()).toUpperCase()}`);
+        } else padActions.set(pid, { t: 'none' });
       } else if (h.has('btn:fx')) {
         fxDown(pid, k, e.timeStamp);
       } else if (h.has('fn:pattern')) {
@@ -162,6 +165,10 @@ export const handlers: RouterHandlers = {
         padActions.set(pid, { t: 'none' });
       } else {
         const sound = selectedSound.peek();
+        if (!keyActive(project.peek().sounds[sound], k)) {
+          padActions.set(pid, { t: 'none' });
+          return;
+        }
         setLastKey(sound, k);
         playKey(sound, k, true);
         padActions.set(pid, { t: 'note', sound, key: k });

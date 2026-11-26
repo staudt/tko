@@ -35,7 +35,7 @@ export type SoundParams = {
   /** Trim region, 0..1 of the sample (melodic). */
   start: number;
   end: number;
-  /** Drum: 17 boundaries in 0..1 (slice k = slices[k]..slices[k+1]); melodic: []. */
+  /** Drum: 2..17 boundaries in 0..1 (slice k = slices[k]..slices[k+1]; keys past the last slice are silent); melodic: []. Other lengths = 16 equal slices. */
   slices: number[];
   /** Semitones, -24..24. */
   pitch: number;

@@ -191,6 +191,20 @@ describe('drum slices', () => {
   });
 });
 
+describe('fewer slices', () => {
+  it('keys past the last slice are silent; slices map to their regions', () => {
+    const sr = 48000;
+    const p = withStep(withStep(emptyPattern(), DRUM, 0, keyMask(1)), DRUM, 4, keyMask(5));
+    const cmds = [...slot(DRUM, 'drum', 'd', clickTrain(sr, {}), sr, { slices: [0, 0.5, 0.75, 1] }), patternCmd(0, p), PLAY];
+    const r = render(cmds, 1.2, { sr });
+    const on = sparseOnsets(r.left, sr);
+    // key 1 plays slice 2 (0.5..0.75 of the 16-click train = clicks 8..11, 4 onsets within 0.4 s
+    // of the start); key 5 has no slice, so nothing sounds at step 4 (0.5 s) or after.
+    expect(on.length).toBe(4);
+    expect(on.every((f) => f < 0.45 * sr)).toBe(true);
+  });
+});
+
 describe('chords', () => {
   it('a three-key step plays three frequencies', () => {
     const sr = 48000;

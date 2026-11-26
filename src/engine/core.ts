@@ -47,6 +47,8 @@ class SoundState {
   start = 0;
   end = 1;
   readonly slices = new Float64Array(KEYS + 1);
+  /** Drum: number of slices (1..16); keys at or above it are silent. */
+  sliceCount = KEYS;
   pitch = 0;
   tone = 0;
   volume = 0.8;
@@ -265,8 +267,17 @@ export class Engine {
         st.rate = smp?.rate ?? 44100;
         st.start = Math.min(1, Math.max(0, Math.min(p.start, p.end)));
         st.end = Math.min(1, Math.max(0, Math.max(p.start, p.end)));
-        if (p.slices.length === KEYS + 1) for (let k = 0; k <= KEYS; k++) st.slices[k] = Math.min(1, Math.max(0, p.slices[k]!));
-        else for (let k = 0; k <= KEYS; k++) st.slices[k] = k / KEYS;
+        if (p.slices.length >= 2 && p.slices.length <= KEYS + 1) {
+          st.sliceCount = p.slices.length - 1;
+          let prev = 0;
+          for (let k = 0; k <= st.sliceCount; k++) {
+            prev = Math.min(1, Math.max(prev, p.slices[k]!));
+            st.slices[k] = prev;
+          }
+        } else {
+          st.sliceCount = KEYS;
+          for (let k = 0; k <= KEYS; k++) st.slices[k] = k / KEYS;
+        }
         st.pitch = Math.min(24, Math.max(-24, p.pitch));
         st.tone = Math.min(1, Math.max(-1, p.tone));
         st.toneTarget = st.tone;
@@ -450,6 +461,7 @@ export class Engine {
     const st = this.sounds[snd]!;
     const d = st.data;
     if (!d) return;
+    if (st.drum && key >= st.sliceCount) return; // no slice on this key
     this.active |= 1 << snd;
     this.meterKeys[snd] = key;
     st.toneTarget = lockB === NO_LOCK ? st.tone : lockB / 100;

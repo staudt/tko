@@ -4,7 +4,7 @@ import { getStep, setStep, toggleKey } from '../store/edit';
 import { editPattern, selectedSound, setLastKey, stepSheet } from './state';
 import { Sheet } from './Sheet';
 import { audition } from './controls';
-import { keyLabel } from './stepHelpers';
+import { keyActive, keyLabel } from './stepHelpers';
 import { lcdMessage } from '../lcd/message';
 
 const pad2 = (n: number) => String(n + 1).padStart(2, '0');
@@ -47,10 +47,12 @@ export function StepSheet() {
           <div class="keygrid">
             {Array.from({ length: 16 }, (_, k) => {
               const on = !!d && (d.keys & (1 << k)) !== 0;
+              const act = keyActive(sound, k);
               return (
                 <button
                   key={k}
-                  class={`kcell${on ? ' on' : ''}`}
+                  class={`kcell${on ? ' on' : ''}${act ? '' : ' none'}`}
+                  disabled={!act}
                   data-testid={`key-${k + 1}`}
                   aria-pressed={on}
                   onPointerDown={() => {
@@ -74,7 +76,7 @@ export function StepSheet() {
                   }}
                 >
                   <span class="kn">{k + 1}</span>
-                  <span class="kl">{keyLabel(sound, k, project.value)}</span>
+                  <span class="kl">{act ? keyLabel(sound, k, project.value) : '—'}</span>
                 </button>
               );
             })}
