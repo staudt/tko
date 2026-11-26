@@ -26,9 +26,6 @@ const stepPress = new Map<number, StepPress>();
 /** Pads pressed in the SOUND / PATTERN tabs: a tap acts on release, a long-press opens the popover. */
 type TabPress = { mode: 'sound' | 'pattern'; k: number; timer: ReturnType<typeof setTimeout> | null; fired: boolean };
 const tabPress = new Map<number, TabPress>();
-/** Pattern pads tapped during this visit to the PATTERN tab (the chain being built). */
-let patVisit: number[] = [];
-let visitN = 0;
 
 const TAB_HOLD_MS = 450;
 const TAP_MS = 300;
@@ -280,10 +277,6 @@ export function setPadMode(m: PadMode): void {
   const next = padMode.peek() === m ? 'play' : m;
   padMode.value = next;
   padPopover.value = null;
-  if (next === 'pattern') {
-    patVisit = [];
-    visitN++;
-  }
 }
 
 /** FX pad pressed (FX held, or the FX tab): effect on while held; knobs follow the latest. */
@@ -318,14 +311,10 @@ function tabUp(pid: number, cancelled: boolean): void {
     selectSound(tp.k);
     audition(tp.k, 0);
     padMode.value = 'play';
-  } else if (!patVisit.length) {
-    patVisit = [tp.k];
-    setChainAndEdit([tp.k]);
   } else {
-    patVisit = [...patVisit, tp.k];
-    const chain = patVisit;
-    apply((p) => setChain(p, chain), { merge: `chain:${visitN}` });
-    lcdMessage(chainText(chain));
+    // A tap plays that one pattern (switching at the end of the current one while playing).
+    // Chains are built only by holding PATTERN and tapping pads in order.
+    setChainAndEdit([tp.k]);
   }
 }
 

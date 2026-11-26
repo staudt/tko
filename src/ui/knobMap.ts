@@ -33,7 +33,7 @@ export function hintText(): string {
   if (mode === 'trim') return project.value.sounds[selectedSound.value]?.kind === 'drum' ? 'A: volume · pad: select sound' : 'A: trim start · B: trim end · pad: select';
   if (mode === 'lock') return 'A: lock pitch · B: lock tone · tap: length';
   if (mode === 'tune') return 'tap: select sound · hold: actions · knobs: key/scale';
-  if (padMode.value === 'pattern') return 'tap: pattern · more taps: chain · hold: copy/paste';
+  if (padMode.value === 'pattern') return 'tap: play pattern · hold pad: copy/paste · hold PATTERN+pads: chain';
   if (padMode.value === 'fx') return 'hold pads: effects · knobs: shape';
   if (recArmed.value && playing.value) return 'FX+pad: record fx · hold ERASE: erase';
   if (writeMode.value) return 'tap: step · hold+knob: lock · ERASE+step: clear';

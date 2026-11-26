@@ -151,7 +151,7 @@ test.describe('sequencer (touch)', () => {
     await expect(page.locator('.sheet-wrap.open')).toHaveCount(0);
   });
 
-  test('PATTERN tab: tap pads 2, 4 -> chain [1,3]; tap PATTERN exits', async ({ page }) => {
+  test('PATTERN tab: each tap plays that single pattern; tap PATTERN exits', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'PATTERN'));
@@ -161,15 +161,14 @@ test.describe('sequencer (touch)', () => {
     await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([1]);
     await expect(page.getByTestId('lcd')).toHaveAttribute('data-pat', '2');
     await tapCtl(t, page, page.getByTestId('pad-4'));
-    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([1, 3]);
-    await expect(page.getByTestId('pad-2').locator('.sub')).toHaveText('#1');
-    await expect(page.getByTestId('pad-4').locator('.sub')).toHaveText('#2');
-    await expect(page.getByTestId('pad-2')).toHaveClass(/\blit\b/);
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([3]);
+    await expect(page.getByTestId('pad-4')).toHaveClass(/\blit\b/);
+    await expect(page.getByTestId('pad-2')).not.toHaveClass(/\blit\b/);
     // still latched; tapping PATTERN leaves
     await expect(btn(page, 'PATTERN')).toHaveAttribute('aria-pressed', 'true');
     await tapCtl(t, page, btn(page, 'PATTERN'));
     await expect(btn(page, 'PATTERN')).toHaveAttribute('aria-pressed', 'false');
-    // a new visit starts a fresh chain
+    // reopening the tab and tapping plays that pattern
     await tapCtl(t, page, btn(page, 'PATTERN'));
     await tapCtl(t, page, page.getByTestId('pad-7'));
     await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'chain').pop()?.patterns).toEqual([6]);
