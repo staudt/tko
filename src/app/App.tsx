@@ -10,6 +10,7 @@ import { hintText, knobSpecs } from '../ui/knobMap';
 import { attachRouter } from '../ui/input/router';
 import { handlers } from '../ui/controls';
 import { SettingsSheet } from '../ui/SettingsSheet';
+import { ProjectsSheet } from '../ui/ProjectsSheet';
 import { TempoPill } from '../ui/TempoPill';
 import { settings } from '../ui/settings';
 import { heldControls, locked, padMode, sampling, selectedSound, settingsOpen } from '../ui/state';
@@ -76,6 +77,7 @@ export function Instrument() {
       <StepSheet />
       <SampleSheet />
       <SettingsSheet />
+      <ProjectsSheet />
       <Toast />
       <div class="rotate">Rotate your phone</div>
     </div>

@@ -13,7 +13,7 @@ export function emptySound(i: number): Sound {
 
 export function defaultProject(): Project {
   return {
-    id: `p${Date.now().toString(36)}`,
+    id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     name: 'Untitled',
     version: SCHEMA_VERSION,
     bpm: 120,

@@ -9,6 +9,8 @@ import { MAX_RECORD_SECONDS, MicError, startRecording, type RecordingSession } f
 import { trimSilence } from '../platform/trim';
 import { crop, fadeEdges, limitLength, normalize, reverse } from '../dsp/process';
 import { autoSlices, equalSlices } from '../dsp/slice';
+import { getAudioContext } from '../platform/audio';
+import { outputLatency, playCalibrationClicks } from '../engine/host';
 import { lcdMessage } from '../lcd/message';
 import { sampling, samplingSlot } from './state';
 import { previewSample } from './preview';
@@ -43,7 +45,29 @@ const secs = (s: Sample) => (s.l.length / s.rate).toFixed(1);
 
 // ---- microphone sessions -------------------------------------------------------------------------
 
-type Rec = { slot: number; session: RecordingSession | null; stopped: boolean };
+type Rec = { slot: number; session: RecordingSession | null; stopped: boolean; countIn: boolean; drop: number; timers: ReturnType<typeof setTimeout>[] };
+
+const CI_KEY = 'tko.countIn';
+/** Count-in before Sample-sheet recordings (persisted in localStorage). */
+export const countInOn = signal<boolean>(
+  (() => {
+    try {
+      return localStorage.getItem(CI_KEY) === '1';
+    } catch {
+      return false;
+    }
+  })(),
+);
+export function setCountIn(on: boolean): void {
+  countInOn.value = on;
+  try {
+    localStorage.setItem(CI_KEY, on ? '1' : '0');
+  } catch {
+    /* storage unavailable */
+  }
+}
+/** Beats left in the running count-in (4..1), 0 when none. */
+export const countdown = signal(0);
 let rec: Rec | null = null;
 let raf = 0;
 
@@ -73,9 +97,9 @@ function loop(now: number): void {
 }
 
 /** Start recording into `slot` (from a user gesture). Resolves once the mic is open (or failed). */
-export async function beginRecord(slot: number): Promise<void> {
+export async function beginRecord(slot: number, countIn = false): Promise<void> {
   if (rec || blockedByMemory()) return;
-  const r: Rec = { slot, session: null, stopped: false };
+  const r: Rec = { slot, session: null, stopped: false, countIn, drop: 0, timers: [] };
   rec = r;
   sampling.value = true;
   samplingSlot.value = slot;
@@ -91,6 +115,7 @@ export async function beginRecord(slot: number): Promise<void> {
     r.session = session;
     meter.active = true;
     if (!raf) raf = requestAnimationFrame(loop);
+    if (countIn) await runCountIn(r, session);
   } catch (e) {
     if (rec === r) {
       rec = null;
@@ -103,6 +128,32 @@ export async function beginRecord(slot: number): Promise<void> {
   }
 }
 
+/** Four clicks at the project tempo, LCD 4-3-2-1 in sync; remembers how much audio precedes the downbeat. */
+async function runCountIn(r: Rec, session: RecordingSession): Promise<void> {
+  const ctx = getAudioContext();
+  const startCtx = ctx.currentTime - session.elapsed();
+  const beat = 60 / project.peek().bpm;
+  const heard = await playCalibrationClicks(4, beat);
+  if (r.stopped) return;
+  const down = heard[3]! + beat - outputLatency();
+  r.drop = Math.max(0, Math.round((down - startCtx - 0.01) * ctx.sampleRate));
+  heard.forEach((h, k) => {
+    r.timers.push(
+      setTimeout(() => {
+        if (r.stopped) return;
+        countdown.value = 4 - k;
+        lcdMessage(String(4 - k), beat * 1000);
+      }, Math.max(0, (h - ctx.currentTime) * 1000)),
+    );
+  });
+  r.timers.push(
+    setTimeout(() => {
+      countdown.value = 0;
+      if (!r.stopped) lcdMessage('REC', 600);
+    }, Math.max(0, (heard[3]! + beat - ctx.currentTime) * 1000)),
+  );
+}
+
 /** Stop the running recording and turn it into the slot's new sample. */
 export async function endRecord(): Promise<void> {
   const r = rec;
@@ -112,18 +163,38 @@ export async function endRecord(): Promise<void> {
   sampling.value = false;
   samplingSlot.value = -1;
   meter.active = false;
+  r.timers.forEach(clearTimeout);
+  const counting = r.countIn && !!r.session && (r.drop === 0 || r.session.elapsed() * getAudioContext().sampleRate < r.drop);
+  countdown.value = 0;
   if (!r.session) return; // still opening: beginRecord cancels it when it arrives
+  if (counting) {
+    r.session!.cancel(); // tapped during the count-in
+    lcdMessage('CANCELLED');
+    return;
+  }
   try {
     const raw = await r.session.stop();
-    await finishRecording(r.slot, raw);
+    await finishRecording(r.slot, raw, r.countIn ? r.drop : undefined);
   } catch (e) {
     micFail(e);
   }
 }
 
 /** Trim silence (keep a little pre-roll), normalize, fade, save and install into the slot. */
-export async function finishRecording(slot: number, raw: Sample): Promise<boolean> {
-  const t = trimSilence(raw.l, undefined, raw.rate, -45, 20, 40);
+export async function finishRecording(slot: number, raw: Sample, dropFrames?: number): Promise<boolean> {
+  let t: { l: Float32Array } | null;
+  if (dropFrames === undefined) t = trimSilence(raw.l, undefined, raw.rate, -45, 20, 40);
+  else {
+    // Count-in take: keep the timing of the lead-in, trim only the tail.
+    const l = raw.l.slice(Math.min(raw.l.length, dropFrames));
+    const thr = 10 ** (-45 / 20);
+    let last = -1;
+    for (let i = l.length - 1; i >= 0; i--) if (Math.abs(l[i]!) >= thr) {
+      last = i;
+      break;
+    }
+    t = last < 0 ? null : { l: l.slice(0, Math.min(l.length, last + 1 + Math.round(0.04 * raw.rate))) };
+  }
   if (!t || t.l.length < raw.rate * 0.03) {
     lcdMessage('NO SOUND');
     showToast('Nothing was recorded. Hold the pad while you make a sound.');

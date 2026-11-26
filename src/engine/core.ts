@@ -143,6 +143,7 @@ export class Engine {
   private capL: Float32Array | null = null;
   private capPos = 0;
   private capStart = 0;
+  private capPost = false;
 
   private masterPeak = 0;
   private active = 0;
@@ -198,6 +199,7 @@ export class Engine {
       case 'transport':
         if (cmd.playing && !this.playing) {
           this.playing = true;
+          if (this.capL && this.capStart === Infinity) this.capStart = this.frame;
           this.anchorFrame = this.frame;
           this.anchorStep = 0;
           this.nextStep = 0;
@@ -338,7 +340,9 @@ export class Engine {
         this.capId = cmd.id;
         this.capL = cmd.l;
         this.capPos = 0;
-        this.capStart = this.playing ? this.nextPatternStart() : this.frame;
+        this.capPost = cmd.tap === 'post';
+        // fromStart while stopped: capture begins on the frame playback starts (set in 'transport').
+        this.capStart = this.playing ? this.nextPatternStart() : cmd.fromStart ? Infinity : this.frame;
         break;
       case 'panic':
         this.qLen = 0;
@@ -536,7 +540,8 @@ export class Engine {
     }
     if (type === EV_CLICK) {
       this.click = this.qA[i] === 1 ? this.clickHi : this.clickLo;
-      this.clickPos = 0;
+      // Mixed after the limiter, so wait out its lookahead to stay aligned with the music.
+      this.clickPos = -this.limiter.latency;
       this.clickStart = this.dispatchOff;
       return;
     }
@@ -662,19 +667,21 @@ export class Engine {
       left[i] = left[i]! * mg;
       right[i] = right[i]! * mg;
     }
-    if (this.capL) this.capture(left, right, n, blockStart);
-    // Metronome after the capture point: never recorded into resamples.
+    if (this.capL && !this.capPost) this.capture(left, right, n, blockStart);
+    this.limiter.process(left, right, n);
+    if (this.capL && this.capPost) this.capture(left, right, n, blockStart);
+    // Metronome after both capture points (never recorded) and after the limiter (quiet clicks).
     const ck = this.click;
     if (ck) {
       let i = this.clickStart >= 0 ? this.clickStart : 0;
       this.clickStart = -1;
       for (; i < n && this.clickPos < ck.length; i++, this.clickPos++) {
+        if (this.clickPos < 0) continue;
         left[i]! += ck[this.clickPos]!;
         right[i]! += ck[this.clickPos]!;
       }
       if (this.clickPos >= ck.length) this.click = null;
     }
-    this.limiter.process(left, right, n);
 
     let mp = this.masterPeak;
     for (let i = 0; i < n; i++) {

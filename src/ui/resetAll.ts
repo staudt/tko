@@ -1,30 +1,27 @@
-// "Reset to defaults": erase the project and all user samples, back to the factory kit. Latency calibration is kept.
+// "Reset to defaults": erase the CURRENT project back to the factory kit (same id and name) and the user
+// samples no other project uses. Other projects and the latency calibration are kept.
 import { playing, togglePlay } from '../engine/host';
-import { replaceProject } from '../store/project';
+import { project, replaceProject } from '../store/project';
 import { defaultProject } from '../store/defaults';
 import { applyFactoryMeta } from '../store/factoryMeta';
-import { deleteSample, listSamples } from '../store/samples';
+import { deleteUnusedSamples, saveProjectNow } from '../store/persist';
 import { lcdMessage } from '../lcd/message';
-import { chainDraft, editPattern, lastKey, lastKeyVer, padMode, padPopover, queuedPattern, recArmed, selectedSound, settingsOpen, stepSheet, writeMode } from './state';
+import { lastKey, lastKeyVer, settingsOpen } from './state';
+import { resetUiForProject } from './projects';
 
 export async function resetAll(): Promise<void> {
   if (playing.peek()) await togglePlay();
+  const { id, name } = project.peek();
+  const fresh = { ...defaultProject(), id, name };
+  replaceProject(fresh);
   try {
-    for (const m of await listSamples()) await deleteSample(m.id);
+    await saveProjectNow(fresh);
+    await deleteUnusedSamples(id);
   } catch {
     /* storage unavailable: nothing to delete */
   }
-  replaceProject(defaultProject());
   await applyFactoryMeta();
-  selectedSound.value = 0;
-  editPattern.value = 0;
-  padMode.value = 'play';
-  writeMode.value = false;
-  recArmed.value = false;
-  padPopover.value = null;
-  stepSheet.value = null;
-  chainDraft.value = [];
-  queuedPattern.value = null;
+  resetUiForProject();
   lastKey.fill(0);
   lastKeyVer.value++;
   try {

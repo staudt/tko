@@ -89,3 +89,6 @@ export const sampleSheetOpen = signal(false);
 export const sampling = signal(false);
 /** Slot (0..15) being sampled into, else -1. */
 export const samplingSlot = signal(-1);
+
+/** The Projects sheet (opened from Settings). */
+export const projectsOpen = signal(false);

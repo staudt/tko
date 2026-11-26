@@ -277,3 +277,35 @@ if (typeof document !== 'undefined') {
     if (node) void getAudioContext().suspend().catch(() => {});
   });
 }
+
+/**
+ * Export: plays the current chain `loops` times from its start and records the master output after
+ * the limiter (never clips; metronome excluded). Resolves with mono audio when done; playback stops.
+ */
+export async function exportAudio(loops: number, onProgress?: (fraction: number) => void): Promise<{ l: Float32Array; rate: number }> {
+  await startAudio();
+  const ctx = getAudioContext();
+  const p = project.peek();
+  const steps = p.chain.length * 16 * Math.max(1, Math.round(loops));
+  const frames = Math.round(((ctx.sampleRate * 60) / p.bpm / 4) * steps);
+  if (playing.peek()) {
+    playing.value = false;
+    await new Promise((r) => setTimeout(r, 80));
+  }
+  const id = `x${Date.now().toString(36)}`;
+  const l = new Float32Array(frames);
+  const done = new Promise<{ l: Float32Array; rate: number }>((resolve) => {
+    pendingResamples.set(id, (out) => resolve({ l: out, rate: ctx.sampleRate }));
+  });
+  post({ type: 'resample', id, l, tap: 'post', fromStart: true }, [l.buffer]);
+  post({ type: 'chain', patterns: [...p.chain], now: true });
+  playing.value = true;
+  const t0 = performance.now();
+  const total = (frames / ctx.sampleRate) * 1000;
+  const timer = onProgress ? setInterval(() => onProgress(Math.min(1, (performance.now() - t0) / total)), 100) : null;
+  const out = await done;
+  if (timer) clearInterval(timer);
+  onProgress?.(1);
+  playing.value = false;
+  return out;
+}

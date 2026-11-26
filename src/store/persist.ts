@@ -4,6 +4,7 @@ import { isScaleId } from './scales';
 import { PATTERNS, SOUNDS, STEPS } from '../engine/protocol';
 import { SCHEMA_VERSION, type Lane, type Pattern, type Project, type Sound, type StepData } from './types';
 import { defaultProject, emptyPattern, emptySound, FACTORY_PREFIX } from './defaults';
+import { deleteSample, listSamples } from './samples';
 
 export const DB_NAME = 'tko';
 export const DB_VERSION = 1;
@@ -219,6 +220,119 @@ export async function loadVersion(id: number): Promise<Project | null> {
   } catch {
     return null;
   }
+}
+
+// ---------- multiple projects ----------
+
+export type ProjectInfo = { id: string; name: string; savedAt: number; bpm: number; patternsUsed: boolean[] };
+
+export const patternUsed = (p: Pattern): boolean => p.lanes.some((l) => l.some((s) => s !== null)) || p.fx.some((f) => f !== null);
+
+async function allRecords(): Promise<{ id: string; savedAt: number; project: Project }[]> {
+  const d = await openDb();
+  return new Promise((resolve, reject) => {
+    const out: { id: string; savedAt: number; project: Project }[] = [];
+    const tx = d.transaction(PROJECTS, 'readonly');
+    const cur = tx.objectStore(PROJECTS).openCursor();
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) return;
+      const rec: unknown = c.value;
+      const p = isObj(rec) ? migrate(rec.project) : null;
+      if (p) out.push({ id: String(c.key), savedAt: isObj(rec) && typeof rec.savedAt === 'number' ? rec.savedAt : 0, project: { ...p, id: String(c.key) } });
+      c.continue();
+    };
+    tx.oncomplete = () => resolve(out);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Saved projects, most recently saved first. */
+export async function listProjects(): Promise<ProjectInfo[]> {
+  try {
+    return (await allRecords())
+      .sort((a, b) => b.savedAt - a.savedAt)
+      .map((r) => ({ id: r.id, name: r.project.name, savedAt: r.savedAt, bpm: r.project.bpm, patternsUsed: r.project.patterns.map(patternUsed) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadProject(id: string): Promise<Project | null> {
+  try {
+    const rec = await run<unknown>(PROJECTS, 'readonly', (s) => s.get(id));
+    const p = migrate(isObj(rec) ? rec.project : null);
+    return p ? { ...p, id } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCurrentProject(id: string): Promise<void> {
+  await run(META, 'readwrite', (s) => s.put(id, CURRENT_KEY));
+}
+
+/** Immediate write of `p` (and marks it current), independent of the debounced autosave. */
+export async function saveProjectNow(p: Project): Promise<void> {
+  await saveProject(p, Date.now());
+}
+
+/** User sample ids ('u…') used by the projects, optionally leaving one project out. */
+export async function userSamplesUsed(exceptId?: string): Promise<Set<string>> {
+  const used = new Set<string>();
+  for (const r of await allRecords()) {
+    if (r.id === exceptId) continue;
+    for (const s of r.project.sounds) if (s.sampleId?.startsWith('u')) used.add(s.sampleId);
+  }
+  return used;
+}
+
+/** Deletes every user sample no project (other than `exceptId`) uses. */
+export async function deleteUnusedSamples(exceptId?: string): Promise<void> {
+  const used = await userSamplesUsed(exceptId);
+  for (const m of await listSamples()) if (!used.has(m.id)) await deleteSample(m.id);
+}
+
+/** Deletes a project and its versions, then the user samples only it used. */
+export async function deleteProject(id: string): Promise<void> {
+  const rec = await run<unknown>(PROJECTS, 'readonly', (s) => s.get(id));
+  const mine = new Set<string>();
+  const gone = migrate(isObj(rec) ? rec.project : null);
+  for (const s of gone?.sounds ?? []) if (s.sampleId?.startsWith('u')) mine.add(s.sampleId);
+  const d = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = d.transaction([PROJECTS, VERSIONS, META], 'readwrite');
+    tx.objectStore(PROJECTS).delete(id);
+    const vs = tx.objectStore(VERSIONS);
+    const keys = vs.index('projectId').getAllKeys(id);
+    keys.onsuccess = () => keys.result.forEach((k) => vs.delete(k));
+    const meta = tx.objectStore(META);
+    const cur = meta.get(CURRENT_KEY);
+    cur.onsuccess = () => {
+      if (cur.result === id) meta.delete(CURRENT_KEY);
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+  const used = await userSamplesUsed();
+  for (const sid of mine) if (!used.has(sid)) await deleteSample(sid);
+}
+
+/** Saves a copy of a project under a new id and name; returns the new id (null if the source is missing). */
+export async function duplicateProject(id: string, newName: string): Promise<string | null> {
+  const p = await loadProject(id);
+  if (!p) return null;
+  const copy: Project = { ...p, id: defaultProject().id, name: newName.slice(0, 64) };
+  const d = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = d.transaction(PROJECTS, 'readwrite');
+    tx.objectStore(PROJECTS).put({ project: copy, savedAt: Date.now() } satisfies ProjectRecord, copy.id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+  return copy.id;
 }
 
 // ---------- autosave ----------

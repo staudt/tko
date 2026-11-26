@@ -88,6 +88,49 @@ test.describe('sampling', () => {
     await expect.poll(async () => (await lastSound(page, 0))?.sampleId ?? '', { timeout: 15_000 }).toMatch(/^u/);
   });
 
+  test('count-in: toggle persists; Record counts 4-3-2-1 then saves a sample', async ({ page }) => {
+    await installFakeMic(page);
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    await expect(page.getByTestId('count-in')).not.toHaveClass(/\bon\b/);
+    await page.getByTestId('count-in').click();
+    await expect(page.getByTestId('count-in')).toHaveClass(/\bon\b/);
+    expect(await page.evaluate(() => localStorage.getItem('tko.countIn'))).toBe('1');
+    await page.getByTestId('sample-record').click();
+    await expect(page.getByTestId('sample-record')).toContainText(/^[1-4]$/, { timeout: 5000 });
+    await expect(page.getByTestId('sample-record')).toContainText('1', { timeout: 5000 });
+    await expect(page.getByTestId('sample-record')).toContainText('Stop', { timeout: 5000 });
+    await page.waitForTimeout(1200);
+    await page.getByTestId('sample-record').click();
+    await expect.poll(async () => (await lastSound(page, 0))?.sampleId ?? '', { timeout: 15_000 }).toMatch(/^u/);
+  });
+
+  test('count-in: setting survives a reload', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    await page.getByTestId('count-in').click();
+    await page.reload();
+    await startEngine(page);
+    await openSampleSheet(page, await Touch.open(page));
+    await expect(page.getByTestId('count-in')).toHaveClass(/\bon\b/);
+  });
+
+  test('count-in: tapping Record during the count cancels', async ({ page }) => {
+    await installFakeMic(page);
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await openSampleSheet(page, t);
+    await page.getByTestId('count-in').click();
+    await page.getByTestId('sample-record').click();
+    await expect(page.getByTestId('sample-record')).toContainText(/^[1-4]$/, { timeout: 5000 });
+    await page.getByTestId('sample-record').click();
+    await expect(page.getByTestId('sample-record')).toContainText('Record');
+    await page.waitForTimeout(2500);
+    expect((await lastSound(page, 0))?.sampleId ?? 'factory:0').toBe('factory:0');
+  });
+
   test('sheet: rename', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);

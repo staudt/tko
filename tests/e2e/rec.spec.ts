@@ -102,6 +102,27 @@ test.describe('recording (touch)', () => {
     await expect(page.getByTestId('cal-pad')).toBeVisible();
   });
 
+  test('settings: Export WAV downloads a RIFF file', async ({ page }) => {
+    await startEngine(page);
+    const t = await Touch.open(page);
+    await tapCtl(t, page, btn(page, 'WRITE'));
+    await tapCtl(t, page, page.getByTestId('pad-1'));
+    await tapCtl(t, page, btn(page, 'WRITE'));
+    await page.getByTestId('menu').click();
+    await expect(page.getByTestId('export-row')).toBeVisible();
+    await page.getByTestId('export-x1').click();
+    await page.screenshot({ path: 'docs/screenshots/settings-export-390x844.png' });
+    const dl = page.waitForEvent('download', { timeout: 30_000 });
+    await page.getByTestId('export-wav').click();
+    await expect(page.getByTestId('export-progress')).toBeVisible();
+    const d = await dl;
+    expect(d.suggestedFilename()).toMatch(/^tko-.+-\d+bpm-\d{8}-\d{4}\.wav$/);
+    const buf = await (await import('node:fs/promises')).readFile((await d.path())!);
+    expect(buf.subarray(0, 4).toString()).toBe('RIFF');
+    expect(buf.length).toBeGreaterThan(44);
+    await expect(page.getByTestId('toast')).toContainText(/Exported/);
+  });
+
   test('settings: About links, no metronome toggles', async ({ page }) => {
     await startEngine(page);
     await page.getByTestId('menu').tap();
@@ -136,7 +157,7 @@ test.describe('recording (touch)', () => {
     await page.getByTestId('menu').tap();
     await expect(page.getByTestId('reset')).toHaveText('Reset to defaults');
     await page.getByTestId('reset').tap();
-    await expect(page.getByTestId('reset')).toHaveText('Tap again to erase everything');
+    await expect(page.getByTestId('reset')).toHaveText('Tap again to reset this project');
     await page.getByTestId('reset').tap();
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeHidden();
     await expect.poll(() => lane0Sum(page)).toBe(0);

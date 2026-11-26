@@ -3,8 +3,10 @@ import { ctxTimeOfEvent, playCalibrationClicks } from '../engine/host';
 import { calibrationOffset } from '../store/record';
 import { Sheet } from './Sheet';
 import { OFFSET_MAX, OFFSET_MIN, setSettings, settings } from './settings';
-import { settingsOpen } from './state';
+import { projectsOpen, settingsOpen } from './state';
+import { project } from '../store/project';
 import { resetAll } from './resetAll';
+import { ExportRow } from './ExportRow';
 
 type Phase = { t: 'idle' } | { t: 'run'; taps: number } | { t: 'done'; ms: number | null };
 
@@ -27,7 +29,7 @@ function ResetButton() {
         void resetAll();
       }}
     >
-      {armed ? 'Tap again to erase everything' : 'Reset to defaults'}
+      {armed ? 'Tap again to reset this project' : 'Reset to defaults'}
     </button>
   );
 }
@@ -129,6 +131,11 @@ export function SettingsSheet() {
         open && <Calibrate onBack={() => setCal(false)} />
       ) : (
         <>
+          <div class="setsec">Project</div>
+          <button class="setrow" data-testid="projects-row" onClick={() => ((projectsOpen.value = true), (settingsOpen.value = false))}>
+            <span>Projects</span>
+            <span class="setval">{project.value.name} ›</span>
+          </button>
           <div class="setsec">Timing</div>
           <div class="lenrow">
             <span class="lk-name">Latency</span>
@@ -155,6 +162,7 @@ export function SettingsSheet() {
           <button class="wide" data-testid="calibrate" onClick={() => setCal(true)}>
             Calibrate
           </button>
+          <ExportRow />
           <div class="setsec">About</div>
           <div class="links">
             <a href="http://x.com/ricardostaudt" target="_blank" rel="noopener" data-testid="about-author">

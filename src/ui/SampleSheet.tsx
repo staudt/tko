@@ -5,7 +5,7 @@ import { previewSample, previewState, stopPreview } from './preview';
 import { sampleSheetOpen, sampling, samplingSlot, selectedSound } from './state';
 import { Sheet } from './Sheet';
 import { Waveform } from './Waveform';
-import { beginRecord, cropSlot, clearSlot, endRecord, importFile, MAX_RECORD_SECONDS, meter, restoreFactory, reverseSlot, setKind, sliceCurrent, usedSeconds } from './sampling';
+import { beginRecord, countInOn, countdown, setCountIn, cropSlot, clearSlot, endRecord, importFile, MAX_RECORD_SECONDS, meter, restoreFactory, reverseSlot, setKind, sliceCurrent, usedSeconds } from './sampling';
 
 const pad2 = (n: number) => String(n + 1).padStart(2, '0');
 
@@ -166,8 +166,9 @@ export function SampleSheet() {
             {!drum && <TBtn id="crop" label="Crop" icon="M7 3v14h14M3 7h14v14" disabled={!has || !cropped} onClick={() => void cropSlot(slot)} />}
           </div>
 
-          <div class="tools">
-            <TBtn cls={`recbtn${recHere ? ' on' : ''}`} id="sample-record" label={recHere ? 'Stop' : 'Record'} icon={recHere ? 'M7 7h10v10H7z' : 'M12 6a6 6 0 100 12 6 6 0 000-12z'} fill disabled={full && !recHere} onClick={() => (recHere ? void endRecord() : void beginRecord(slot))} />
+          <div class="tools five">
+            <TBtn cls={`recbtn${recHere ? ' on' : ''}`} id="sample-record" label={recHere ? (countdown.value > 0 ? String(countdown.value) : 'Stop') : 'Record'} icon={recHere ? 'M7 7h10v10H7z' : 'M12 6a6 6 0 100 12 6 6 0 000-12z'} fill disabled={full && !recHere} onClick={() => (recHere ? void endRecord() : void beginRecord(slot, countInOn.value))} />
+            <TBtn cls={`tog${countInOn.value ? ' on' : ''}`} id="count-in" label="Count-in" aria={`Count-in ${countInOn.value ? 'on' : 'off'}`} icon="M12 3l5 18H7zM12 9l4 6" disabled={recHere} onClick={() => setCountIn(!countInOn.value)} />
             <TBtn id="import-btn" label="Import" icon="M12 4v12M7 11l5 5 5-5M5 20h14" disabled={recHere || full} onClick={() => file.current?.click()} />
             <input
               ref={file}

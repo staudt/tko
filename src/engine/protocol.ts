@@ -61,7 +61,15 @@ export type EngineCommand =
   | { type: 'fx'; fx: number; on: boolean }
   | { type: 'fxKnob'; fx: number; x: number; y: number }
   /** Record the master output into `l` (transferred), starting at the next pattern start while playing, else now. */
-  | { type: 'resample'; id: string; l: Float32Array }
+  | {
+      type: 'resample';
+      id: string;
+      l: Float32Array;
+      /** 'post' = after the master limiter (export: never clips); default before it (sampling). */
+      tap?: 'pre' | 'post';
+      /** Start at frame-exact transport start instead of the next pattern start (export from stopped). */
+      fromStart?: boolean;
+    }
   /** Melodic key mapping: `offsets[k]` semitones for key k (16 entries), plus a transposition `key`. */
   | { type: 'scale'; offsets: number[]; key: number }
   /** Metronome click on every beat while playing (accent on the pattern start). Not captured by resample. */

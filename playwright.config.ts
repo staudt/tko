@@ -6,6 +6,11 @@ const PORT = Number(process.env.PW_PORT ?? 4174);
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60_000,
+  // Each test runs the real audio engine (AudioWorklet) in its own browser: too many in parallel
+  // starves the CPU and makes timing-based tests flaky. Cap the workers.
+  workers: process.env.CI ? 2 : 3,
+  expect: { timeout: 10_000 },
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: `http://localhost:${PORT}/`,
     launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },

@@ -75,3 +75,19 @@
 - Tests updated/added in rec, notes, seq, ui specs. Screenshots: main-390x844.png, settings-390x844.png.
 
 **Try on the phone:** nudge animation noticeability, chevron size, REC-hold recording feel (quantize vs. what you hear), metronome blip when tapping REC while playing.
+
+## Multiple saved projects (2026-11-26)
+- Store (`src/store/persist.ts`): `listProjects` (newest first, name/bpm/patternsUsed), `loadProject`, `setCurrentProject`, `saveProjectNow`, `duplicateProject`, `deleteProject` (also its versions; then deletes the user samples only that project used), `deleteUnusedSamples`. Project ids now carry a random suffix.
+- Switching (`src/ui/projects.ts`): `openProject` stops playback, flushes the current project, loads the target, `replaceProject` (clears undo), applies factory meta, resets UI state, LCD "PROJECT: name". Also `newProject` ("Untitled N"), `duplicateProjectById`, `deleteProjectById` (deleting the open one opens another or a new one).
+- UI: Settings gets a "Projects" row (current name) -> `ProjectsSheet.tsx`: tap the name to rename, New, list with relative time, BPM, 16 used-pattern dots, tap = open, "..." menu (Rename opens that project and edits its name, Duplicate, Delete with a second tap). New/Duplicate/open close the sheet.
+- "Reset to defaults" now resets only the current project (same id/name) and deletes only samples no other project uses; confirm text "Tap again to reset this project".
+- Tests: `tests/unit/projects.test.ts`, `tests/e2e/projects.spec.ts` (new/switch, duplicate, rename+reload, delete+sample GC, reset scope, 360x640 fit). Screenshot `docs/screenshots/projects-390x844.png`.
+
+**Try on the phone:** switching while playing (stops), open-time of a project with user samples, list legibility with many projects.
+
+## Count-in and WAV export (2026-11-26)
+- Sample sheet: a "Count-in" toggle (5th button in the Record row, `tko.countIn` in localStorage, default off). With it on, Record opens the mic first, then plays 4 clicks at the project BPM (`playCalibrationClicks(4, 60/bpm)`); LCD shows 4-3-2-1 and the Record button shows the number. On stop, audio before the downbeat (minus 10 ms) is dropped; only trailing silence is trimmed. Tapping Record during the count cancels. Hold SAMPLE+pad stays instant. Logic in `src/ui/sampling.ts` (`beginRecord(slot, countIn)`, `finishRecording(..., dropFrames)`).
+- Settings: "Export" row (`src/ui/ExportRow.tsx`, `src/ui/exportWav.ts`): 1x/2x/4x loops of the chain, progress bar, Cancel, then share sheet (`navigator.share` with a file) or download fallback. Filename `tko-<name>-<bpm>bpm-<yyyymmdd-hhmm>.wav`.
+- Tests: sample.spec (count-in toggle, persistence, countdown + saved sample, cancel), rec.spec (export download is RIFF). Screenshots: `settings-export-390x844.png`, `sample-compact-*-390x844.png`.
+
+**Try on the phone:** count-in alignment (does your first hit land at the start of the sample, or is a bit of lead-in/late-cut present? depends on mic/output latency), click loudness, share sheet to Files/Drive, exported loop seamlessness.
