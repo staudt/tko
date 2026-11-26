@@ -1,7 +1,7 @@
 // User settings (timing). Persisted in localStorage 'tko.settings'; also keeps the engine metronome in sync.
 import { effect, signal } from '@preact/signals';
 import { audioReady, playing, setMetronome } from '../engine/host';
-import { recArmed } from './state';
+import { recArmed, recHold } from './state';
 
 export type Settings = { offsetMs: number; metro: boolean; metroRec: boolean };
 export const OFFSET_MIN = -50;
@@ -46,6 +46,6 @@ export function metronomeWanted(s: Settings, armed: boolean, isPlaying: boolean)
 
 effect(() => {
   const ready = audioReady.value;
-  const on = metronomeWanted(settings.value, recArmed.value, playing.value);
+  const on = metronomeWanted(settings.value, recArmed.value || recHold.value, playing.value);
   if (ready) setMetronome(on);
 });

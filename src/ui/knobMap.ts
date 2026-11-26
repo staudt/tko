@@ -117,7 +117,7 @@ export function knobSpecs(): KnobSpecs {
       lcdMessage(`KEY ${KEY_NAMES[q.key]} ${shortScale(q.scale)}`);
     };
     return {
-      title: `KEY ${KEY_NAMES[p.key]} · ${shortScale(p.scale)}`.toUpperCase(),
+      title: `${KEY_NAMES[p.key]} · ${SCALES[p.scale].name}`.toUpperCase(),
       a: {
         label: 'Key',
         text: `KEY ${KEY_NAMES[p.key]}`,
@@ -133,7 +133,7 @@ export function knobSpecs(): KnobSpecs {
       },
       b: {
         label: 'Scale',
-        text: `SCALE ${shortScale(p.scale)}`.toUpperCase(),
+        text: 'SCALE',
         value: si / (nScales - 1),
         def: 0,
         onChange: (v, f) => {

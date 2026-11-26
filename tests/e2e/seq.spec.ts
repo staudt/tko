@@ -272,6 +272,12 @@ test.describe('sequencer (touch)', () => {
     await expect.poll(() => lastBpm(page)).toBe(140);
   });
 
+  test('tempo pill shows swipe chevrons', async ({ page }) => {
+    await startEngine(page);
+    await expect(page.getByTestId('tempo-chev-l')).toBeVisible();
+    await expect(page.getByTestId('tempo-chev-r')).toBeVisible();
+  });
+
   test('tap BPM toggles the metronome and lights the button', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);

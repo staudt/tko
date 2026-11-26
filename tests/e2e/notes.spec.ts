@@ -35,7 +35,8 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await expect
       .poll(async () => (await commands(page)).filter((c) => c.type === 'scale').pop())
       .toMatchObject({ offsets: scaleOffsets('blues') });
-    await expect(page.getByTestId('knob-b-label')).toHaveText('SCALE BLUES');
+    await expect(page.getByTestId('knob-b-label')).toHaveText('SCALE');
+    await expect(page.getByTestId('readout').locator('.ro-title')).toContainText('BLUES');
   });
 
   test('melodic pads show note names; scale change updates them', async ({ page }) => {
@@ -77,7 +78,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await expect(page.locator('.sheet-wrap.open')).toHaveCount(1);
   });
 
-  test('REC held + pad does nothing: no note, no erase', async ({ page }) => {
+  test('REC held + pad (stopped) plays a note, no erase', async ({ page }) => {
     await startEngine(page);
     const t = await Touch.open(page);
     await tapCtl(t, page, btn(page, 'WRITE'));
@@ -92,7 +93,7 @@ test.describe('notes, scales, step picker, erase, fx record (touch)', () => {
     await page.waitForTimeout(200);
     await t.up(2);
     await t.up(1);
-    expect((await commands(page)).filter((c) => c.type === 'play' && c.on).length).toBe(plays);
+    await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'play' && c.on).length).toBeGreaterThan(plays);
     expect(await lane0(page)).toBe(16);
     await expect(btn(page, 'REC')).toHaveAttribute('aria-pressed', 'false');
   });

@@ -156,7 +156,7 @@ export function Pad({ k }: { k: number }) {
       data-testid={`pad-${k + 1}`}
       role="button"
       aria-label={`Pad ${k + 1}`}
-      style={{ gridColumn: (k % 4) + 2, gridRow: Math.floor(k / 4) + 1 }}
+      style={{ gridColumn: (k % 4) + 1, gridRow: Math.floor(k / 4) + 1 }}
     >
       <i class={dot ? 'dot on' : 'dot'} />
       <span class="num">{k + 1}</span>
@@ -168,30 +168,23 @@ export function Pad({ k }: { k: number }) {
 }
 
 export function PadGrid() {
-  const soundMode = padMode.value === 'sound' || heldControls.value.has('fn:sound') || heldControls.value.has('fn:sample') || (heldControls.value.has('fn:erase') && !writeMode.value);
   const write = writeMode.value;
   return (
     <div class="pads">
-      <div class={`bracket top${soundMode ? ' hot' : ''}`} style={{ gridRow: '1 / 3' }}>
-        <span>melodic</span>
-      </div>
-      <div class={`bracket bottom${soundMode ? ' hot' : ''}`} style={{ gridRow: '3 / 5' }}>
-        <span>drum</span>
-      </div>
       {Array.from({ length: 16 }, (_, k) => (
         <Pad key={k} k={k} />
       ))}
       {padPopover.value && <PadPopover />}
-      <div class="side" style={{ gridColumn: 6, gridRow: 1 }}>
+      <div class="side" style={{ gridColumn: 5, gridRow: 1 }}>
         <FnButton id="btn:rec" label="REC" icon="rec" variant="rec" lit={recArmed.value || heldControls.value.has('btn:rec')} />
       </div>
-      <div class="side" style={{ gridColumn: 6, gridRow: 2 }}>
+      <div class="side" style={{ gridColumn: 5, gridRow: 2 }}>
         <FnButton id="btn:fx" label="FX" icon="fx" variant="fx tab" lit={padMode.value === 'fx' || heldControls.value.has('btn:fx')} />
       </div>
-      <div class="side" style={{ gridColumn: 6, gridRow: 3 }}>
+      <div class="side" style={{ gridColumn: 5, gridRow: 3 }}>
         <FnButton id="btn:play" label="PLAY" icon="play" lit={playing.value} />
       </div>
-      <div class="side" style={{ gridColumn: 6, gridRow: 4 }}>
+      <div class="side" style={{ gridColumn: 5, gridRow: 4 }}>
         <FnButton id="btn:write" label="WRITE" icon="write" lit={write} />
       </div>
     </div>

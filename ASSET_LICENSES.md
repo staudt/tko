@@ -4,8 +4,18 @@
 
 The 16 factory sound slots are rendered offline by `pnpm factory` (`tools/factory/`).
 
-- **Slots 1-8 (melodic)** and **slots 10-16 (synth drum kits)** are rendered by this project's own engines (an FM synthesizer and a synthesized drum voice written by the project author). They contain no third-party audio.
-- **Slot 9 (Studio kit)** uses CC0-1.0 recordings, listed below. CC0 needs no attribution; credit is given anyway.
+- **Slots 2-8 (melodic: Finger Bass, 808 Sub, Electric Piano, Soft Pad, Pluck Lead, Bell, Marimba)** and **slots 10-16 (synth drum kits)** are rendered by this project's own engines (an FM synthesizer, a Karplus-Strong / sine bass synth in `tools/factory/engines/bass.ts`, and a synthesized drum voice written by the project author). They contain no third-party audio.
+- **Slot 1 (Piano)** and **slot 9 (Studio kit)** use CC0-1.0 recordings, listed below. CC0 needs no attribution; credit is given anyway.
+
+### Piano source (CC0-1.0)
+
+- Versilian Community Sample Library (VCSL) by Versilian Studios and contributors: https://github.com/sgossner/VCSL, commit `c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e`. The repository `LICENSE` is the CC0 1.0 Universal legal code (GitHub reports `CC0-1.0`).
+- File: `Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav` (Steinway B, no sustain pedal, close mics, C4, velocity layer 3), https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav (sha256 `238d6f0ed77d5696997e8be45e8d157389868cbd7396a59ad272c315fc464e5b`). `pnpm factory` downloads and checks it.
+- Processing: stereo to mono, trimmed to the onset (-45 dB, 3 ms pre-roll), first 4.2 s kept with a 1.2 s quarter-sine tail fade, f0 measured (autocorrelation) and resampled to exactly C4 when more than 5 cents off, peak-normalized to -1 dBFS, 112 kbps MP3.
+
+### Bass notes
+
+No bass instrument exists in VCSL (checked the whole tree), so Finger Bass (C2, damped Karplus-Strong with soft-finger excitation, sub sine and gentle saturation) and 808 Sub (A1, sine with exponential pitch drop and level-dependent soft saturation) are synthesized by this project's own code.
 
 ### Studio kit sources (all CC0-1.0)
 

@@ -62,6 +62,10 @@ export const audChainPos = signal(0);
 /** Tap-tempo: true while collecting taps; `tapPulse` bumps per tap (flash). */
 export const tapCollecting = signal(false);
 export const tapPulse = signal(0);
+/** True while the tempo pill is being dragged (chevrons brighten). */
+export const tempoDragging = signal(false);
+/** REC is being held (a hold, not a tap): pads play and, while playing, are recorded like an armed take. */
+export const recHold = signal(false);
 export const eraseSheetOpen = signal(false);
 /** Pad (0..15) that just got erased (brief coral flash), else -1. */
 export const eraseFlash = signal(-1);

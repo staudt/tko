@@ -154,13 +154,13 @@ test.describe('touch', () => {
     const t = await Touch.open(page);
     await tapAt(t, page, page.getByRole('button', { name: 'SOUND', exact: true }));
     await expect(page.getByTestId('knob-a-label')).toHaveText(/^KEY [A-G]#?$/);
-    await expect(page.getByTestId('knob-b-label')).toHaveText(/^SCALE /);
+    await expect(page.getByTestId('knob-b-label')).toHaveText('SCALE');
     await dragKnob(t, page, page.getByTestId('knob-a'), 40);
     await expect.poll(async () => (await commands(page)).filter((c) => c.type === 'scale').pop()?.key).toBeGreaterThan(0);
     const k1 = (await commands(page)).filter((c) => c.type === 'scale').pop()!.offsets;
     await dragKnob(t, page, page.getByTestId('knob-b'), 50);
     await expect.poll(async () => JSON.stringify((await commands(page)).filter((c) => c.type === 'scale').pop()?.offsets)).not.toBe(JSON.stringify(k1));
-    await expect(page.getByTestId('knob-b-label')).not.toHaveText('SCALE CHROMATIC');
+    await expect(page.getByTestId('readout').locator('.ro-title')).not.toContainText('CHROMATIC');
     // still in sound mode after turning knobs
     await expect(page.getByRole('button', { name: 'SOUND', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });

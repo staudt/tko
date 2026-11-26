@@ -2,7 +2,7 @@
 import { apply, project } from '../store/project';
 import { setBpm, tapTempo } from '../store/edit';
 import { lcdMessage } from '../lcd/message';
-import { tapCollecting, tapPulse } from './state';
+import { tapCollecting, tapPulse, tempoDragging } from './state';
 
 const DEAD_PX = 6;
 const PX_PER_BPM = 6;
@@ -50,6 +50,7 @@ export function tempoMove(pid: number, e: PointerEvent): void {
   if (!p.dragging) {
     if (Math.abs(dx) < DEAD_PX) return;
     p.dragging = true;
+    tempoDragging.value = true;
     if (p.timer) clearTimeout(p.timer);
     p.timer = null;
   }
@@ -61,6 +62,7 @@ export function tempoUp(pid: number, cancelled: boolean): void {
   const p = press;
   if (!p || p.pid !== pid) return;
   press = null;
+  tempoDragging.value = false;
   if (p.timer) clearTimeout(p.timer);
   if (cancelled || p.dragging || p.long) return;
   const now = performance.now();
@@ -96,4 +98,5 @@ function registerTap(now: number): void {
 export function tempoReset(): void {
   if (press?.timer) clearTimeout(press.timer);
   press = null;
+  tempoDragging.value = false;
 }

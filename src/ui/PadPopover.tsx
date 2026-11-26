@@ -27,7 +27,7 @@ export function PadPopover() {
     return (
     <>
       <div class="pop-backdrop" data-testid="pop-backdrop" onPointerDown={close} />
-      <div class={`popwrap${row < 2 ? ' below' : ' above'}`} style={{ gridColumn: col + 2, gridRow: row + 1 }}>
+      <div class={`popwrap${row < 2 ? ' below' : ' above'}`} style={{ gridColumn: col + 1, gridRow: row + 1 }}>
         <div class="popover" role="menu" data-testid="popover" style={side}>
           {kind === 'sound' ? (
             <>

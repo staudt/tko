@@ -121,7 +121,7 @@ svg { display: block; }
 /* pads */
 .pads {
   display: grid;
-  grid-template-columns: 14px repeat(4, minmax(0, 1fr)) 54px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 54px;
   grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: var(--gap);
   min-height: 0;
@@ -137,10 +137,6 @@ svg { display: block; }
 .pad.m-sound .sub, .pad.m-fx .sub, .pad.m-erase .sub { display: block; grid-row: 3; font: 400 9px var(--font-mono); color: var(--muted); }
 .pad.m-sound.on .lbl { color: var(--amber); }
 
-.bracket { grid-column: 1; position: relative; display: grid; place-items: center; color: #5b5f69; }
-.bracket::before { content: ''; position: absolute; left: 3px; top: 6px; bottom: 6px; width: 5px; border: 1.5px solid currentColor; border-right: 0; border-radius: 4px 0 0 4px; }
-.bracket span { writing-mode: vertical-rl; transform: rotate(180deg); font: 500 9px var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; margin-left: 6px; background: var(--ground); padding: 3px 0; }
-.bracket.hot { color: var(--amber); }
 
 /* sound sheet */
 .sheet-wrap { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 10; }
@@ -253,7 +249,15 @@ input[type='range'].unset { opacity: 0.5; }
 .popover button:disabled { opacity: 0.35; }
 
 /* tempo pill (knob row centre) */
-.tempo { position: relative; min-height: 44px; margin: 0 auto; width: min(100%, 150px); border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; background: linear-gradient(180deg, var(--pad-top), var(--pad-bot)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 0 var(--pad-edge), 0 3px 6px rgba(0,0,0,0.45); touch-action: none; cursor: ew-resize; user-select: none; overflow: hidden; }
+.tempo { position: relative; min-height: 44px; margin: 0 auto; width: min(100%, 150px); border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; background: linear-gradient(180deg, var(--pad-top), var(--pad-bot)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 0 var(--pad-edge), 0 3px 6px rgba(0,0,0,0.45); touch-action: none; cursor: ew-resize; user-select: none; overflow: hidden; }
+.tempo .tp-body { display: flex; align-items: center; gap: 8px; }
+.tempo .tp-chev { position: absolute; top: 50%; transform: translateY(-52%); font: 400 22px/1 var(--font-ui); color: var(--muted); opacity: 0.55; pointer-events: none; transition: color 0.15s, opacity 0.15s; }
+.tempo .tp-chev.l { left: 7px; }
+.tempo .tp-chev.r { right: 7px; }
+.tempo.dragging .tp-chev { color: var(--amber); opacity: 1; }
+.tempo .tp-body.nudge { animation: tempo-nudge 1.1s ease-in-out 0.8s 1; }
+@keyframes tempo-nudge { 0%, 100% { transform: translateX(0); } 12% { transform: translateX(-6px); } 37% { transform: translateX(6px); } 62% { transform: translateX(-6px); } 87% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) { .tempo .tp-body.nudge { animation: none; } }
 .tempo .tp-num { font: 700 22px/1 var(--font-mono); color: var(--amber); white-space: nowrap; }
 .tempo .tp-side { display: grid; gap: 1px; font: 600 9px/1 var(--font-mono); color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; }
 .tempo .tp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 5px var(--amber-glow); justify-self: start; }
@@ -274,6 +278,8 @@ input[type='range'].unset { opacity: 0.5; }
 .sw.on i { transform: translateX(18px); background: var(--amber); }
 .latval { text-align: center; font: 600 16px var(--font-mono); color: var(--amber); margin-top: -4px; }
 .links { display: grid; gap: 4px; }
+.setrow.reset { margin-top: 10px; justify-content: center; color: var(--rec); box-shadow: inset 0 0 0 1.5px var(--rec); }
+.setrow.reset.armed { background: var(--rec); color: #1a0a06; }
 .links a { color: var(--muted); font: 500 13px var(--font-ui); text-decoration: underline; min-height: 36px; display: flex; align-items: center; }
 .cal { display: grid; gap: 10px; }
 .calhelp, .calmsg { margin: 0; font: 500 13px/1.4 var(--font-ui); color: var(--muted); }

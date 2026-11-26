@@ -4,7 +4,7 @@ import { apply, project } from '../store/project';
 import { addKey, setFxStep, setLen } from '../store/edit';
 import { heldLength, quantizeHit } from '../store/record';
 import { audibleStep, ctxTimeOfEvent, outputLatency, playing, positionAt } from '../engine/host';
-import { recArmed } from './state';
+import { recArmed, recHold } from './state';
 import { onStep } from './stepTicker';
 import { settings } from './settings';
 import { lcdMessage } from '../lcd/message';
@@ -13,7 +13,7 @@ let takeN = 0;
 let take: string | null = null;
 
 effect(() => {
-  if (!(recArmed.value && playing.value)) take = null;
+  if (!((recArmed.value || recHold.value) && playing.value)) take = null;
 });
 
 /** Most recently recorded step (for the LCD flash; read from rAF). */
@@ -23,7 +23,7 @@ type Hit = { sound: number; pattern: number; step: number; t: number; take: stri
 const hits = new Map<number, Hit>();
 
 export function recording(): boolean {
-  return recArmed.peek() && playing.peek();
+  return (recArmed.peek() || recHold.peek()) && playing.peek();
 }
 
 /** Where a press at DOM time `ts` lands (nearest step of the heard position), or null. */

@@ -266,3 +266,14 @@ export async function playCalibrationClicks(count = 10, period = 0.5): Promise<n
   }
   return heard;
 }
+
+// Leaving the page (tab switch, app switch, screen off): stop playback and pause audio so nothing
+// keeps sounding in the background. The next touch resumes the context (startAudio on pointerdown).
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    playing.value = false;
+    post({ type: 'panic' });
+    if (node) void getAudioContext().suspend().catch(() => {});
+  });
+}

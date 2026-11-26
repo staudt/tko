@@ -3,7 +3,7 @@ import { apply, project } from '../store/project';
 import { audibleStep, fxPress, playKey, playing, togglePlay } from '../engine/host';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS } from '../engine/fx/ids';
 import { keyLabel } from './stepHelpers';
-import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, padMode, padPopover, queuedPattern, sampleSheetOpen, selectedSound, setLastKey, stepSheet, writeMode, type PadMode } from './state';
+import { chainDraft, eraseSheetOpen, editPattern, fxPad, fxXY, heldStep, heldControls, lastKey, padMode, padPopover, queuedPattern, recHold, sampleSheetOpen, selectedSound, setLastKey, stepSheet, writeMode, type PadMode } from './state';
 import type { RouterHandlers } from './input/router';
 import { lcdMessage } from '../lcd/message';
 import { clearLane, getStep, setBpm as editBpm, setChain, setLen, setSwing as editSwing, setVolume, toggleStep } from '../store/edit';
@@ -27,6 +27,7 @@ const stepPress = new Map<number, StepPress>();
 type TabPress = { mode: 'sound' | 'pattern'; k: number; timer: ReturnType<typeof setTimeout> | null; fired: boolean };
 const tabPress = new Map<number, TabPress>();
 
+let recTimer: ReturnType<typeof setTimeout> | null = null;
 const TAB_HOLD_MS = 450;
 const TAP_MS = 300;
 const STEP_TAP_MS = 350;
@@ -117,13 +118,12 @@ export const handlers: RouterHandlers = {
     if (id.startsWith('pad:')) {
       const k = Number(id.slice(4));
       markUsed();
+      // REC held + pad: pads play as usual and, while playing, the hit is recorded like an armed take.
+      if (h.has('btn:rec')) recHold.value = true;
       if (h.has('fn:erase')) {
         // ERASE held + pad: clear that sound (play mode) or that step (write mode). Silent.
         if (writeMode.peek()) eraseStepHeld(k);
         else eraseSoundHeld(k);
-        padActions.set(pid, { t: 'none' });
-      } else if (h.has('btn:rec')) {
-        // REC held + pad: nothing (no note, no erase).
         padActions.set(pid, { t: 'none' });
       } else if (h.has('fn:sample')) {
         // SAMPLE held + pad k: record the mic into slot k until either is released.
@@ -186,6 +186,13 @@ export const handlers: RouterHandlers = {
     // function buttons: remember press time; combos with anything already held make it "used".
     fnDown.set(id, { t: performance.now(), used: h.size > 1 });
     if (id === 'fn:pattern') chainDraft.value = [];
+    if (id === 'btn:rec') {
+      if (recTimer) clearTimeout(recTimer);
+      recTimer = setTimeout(() => {
+        recTimer = null;
+        if (heldControls.peek().has('btn:rec')) recHold.value = true;
+      }, TAP_MS);
+    }
     if (id === 'fn:erase') eraseBegin();
     if (id.startsWith('fn:') || id === 'btn:fx') markUsedOthers(id);
     // ERASE + FX (either order): clear the fx lane.
@@ -227,6 +234,11 @@ export const handlers: RouterHandlers = {
     }
     const f = fnDown.get(id);
     fnDown.delete(id);
+    if (id === 'btn:rec') {
+      if (recTimer) clearTimeout(recTimer);
+      recTimer = null;
+      recHold.value = false;
+    }
     if (id === 'fn:sample') for (const a of padActions.values()) if (a.t === 'sample') void endRecord();
     if (id === 'fn:pattern') commitChain(cancelled);
     if (f && !cancelled && !f.used && performance.now() - f.t < TAP_MS) {
@@ -254,6 +266,9 @@ export const handlers: RouterHandlers = {
     padActions.clear();
     clearHits();
     fnDown.clear();
+    if (recTimer) clearTimeout(recTimer);
+    recTimer = null;
+    recHold.value = false;
     for (const s of stepPress.values()) if (s.timer) clearTimeout(s.timer);
     stepPress.clear();
     heldStep.value = null;

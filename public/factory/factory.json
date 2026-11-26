@@ -1,51 +1,51 @@
 {
-  "version": 1,
+  "version": 2,
   "sampleRate": 44100,
   "slots": [
     {
       "slot": 0,
-      "name": "Round Bass",
+      "name": "Piano",
       "kind": "melodic",
-      "file": "01-round-bass.mp3",
-      "root": 48,
+      "file": "01-piano.mp3",
+      "root": 60,
       "start": 0.08,
-      "duration": 1.6
+      "duration": 4.2174
     },
     {
       "slot": 1,
-      "name": "Glass Keys",
+      "name": "Finger Bass",
       "kind": "melodic",
-      "file": "02-glass-keys.mp3",
-      "root": 60,
+      "file": "02-finger-bass.mp3",
+      "root": 36,
       "start": 0.08,
-      "duration": 2.2
+      "duration": 2.6
     },
     {
       "slot": 2,
+      "name": "808 Sub",
+      "kind": "melodic",
+      "file": "03-808-sub.mp3",
+      "root": 33,
+      "start": 0.08,
+      "duration": 2.4
+    },
+    {
+      "slot": 3,
       "name": "Electric Piano",
       "kind": "melodic",
-      "file": "03-electric-piano.mp3",
+      "file": "04-electric-piano.mp3",
       "root": 60,
       "start": 0.08,
       "duration": 2.3
     },
     {
-      "slot": 3,
+      "slot": 4,
       "name": "Soft Pad",
       "kind": "melodic",
-      "file": "04-soft-pad.mp3",
+      "file": "05-soft-pad.mp3",
       "root": 60,
       "start": 0.08,
       "duration": 3.2
-    },
-    {
-      "slot": 4,
-      "name": "Brass",
-      "kind": "melodic",
-      "file": "05-brass.mp3",
-      "root": 60,
-      "start": 0.08,
-      "duration": 1.9
     },
     {
       "slot": 5,

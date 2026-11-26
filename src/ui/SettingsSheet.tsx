@@ -4,19 +4,30 @@ import { calibrationOffset } from '../store/record';
 import { Sheet } from './Sheet';
 import { OFFSET_MAX, OFFSET_MIN, setSettings, settings } from './settings';
 import { settingsOpen } from './state';
+import { resetAll } from './resetAll';
 
 type Phase = { t: 'idle' } | { t: 'run'; taps: number } | { t: 'done'; ms: number | null };
 
-function Toggle(p: { label: string; sub?: string; on: boolean; onChange: (v: boolean) => void; id: string }) {
+function ResetButton() {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   return (
-    <button class="setrow" role="switch" aria-checked={p.on} data-testid={p.id} onClick={() => p.onChange(!p.on)}>
-      <span class="setname">
-        {p.label}
-        {p.sub && <small>{p.sub}</small>}
-      </span>
-      <span class={`sw${p.on ? ' on' : ''}`}>
-        <i />
-      </span>
+    <button
+      class={`setrow reset${armed ? ' armed' : ''}`}
+      data-testid="reset"
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          timer.current = setTimeout(() => setArmed(false), 4000);
+          return;
+        }
+        if (timer.current) clearTimeout(timer.current);
+        setArmed(false);
+        void resetAll();
+      }}
+    >
+      {armed ? 'Tap again to erase everything' : 'Reset to defaults'}
     </button>
   );
 }
@@ -119,8 +130,6 @@ export function SettingsSheet() {
       ) : (
         <>
           <div class="setsec">Timing</div>
-          <Toggle id="set-metro" label="Metronome" sub="always on" on={s.metro} onChange={(v) => setSettings({ metro: v })} />
-          <Toggle id="set-metro-rec" label="Metronome while recording" on={s.metroRec} onChange={(v) => setSettings({ metroRec: v })} />
           <div class="lenrow">
             <span class="lk-name">Latency</span>
             <button class="mini sq" aria-label="Less latency offset" data-testid="lat-minus" onClick={() => off(-1)}>
@@ -148,6 +157,12 @@ export function SettingsSheet() {
           </button>
           <div class="setsec">About</div>
           <div class="links">
+            <a href="http://x.com/ricardostaudt" target="_blank" rel="noopener" data-testid="about-author">
+              Made by Ricardo Staudt
+            </a>
+            <a href="https://claude.com/claude-code" target="_blank" rel="noopener" data-testid="about-claude">
+              Built with Claude Code
+            </a>
             <a href="./licenses/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener">
               About / licenses
             </a>
@@ -155,6 +170,7 @@ export function SettingsSheet() {
               Sound and asset licenses
             </a>
           </div>
+          <ResetButton />
         </>
       )}
     </Sheet>

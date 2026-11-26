@@ -1,14 +1,17 @@
 // Build tool (not part of the app bundle): renders the 16 factory sound slots into
 // .factory-cache/*.wav, encodes them to MP3 in public/factory/ and writes factory.json.
-// Run with `pnpm factory`. Melodic slots come from the FM engine, synth kits from the drum voice,
+// Run with `pnpm factory`. Melodic slots come from the FM engine, our own bass synths (engines/bass.ts) and a CC0 piano note, synth kits from the drum voice,
 // "Studio kit" from CC0 recordings (see ASSET_LICENSES.md).
 import { test } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FmParams, FmVoice } from './engines/voice';
 import { DrumSettings, DrumVoice, modelIndex } from './engines/drum';
 import { presetByName } from './engines/fmPresets';
+import { renderFingerBass, renderSub808 } from './engines/bass';
+import { centsBetween, measureF0, resample } from './engines/analysis';
 import type { DrumModel } from './engines/types';
 
 const SR = 44100;
@@ -49,34 +52,101 @@ function fadeEnd(a: Float32Array, seconds: number, quarterSine = false): void {
 
 // ---------------------------------------------------------------- melodic
 
-type Melodic = { name: string; preset: string; root: number; noteOff: number; duration: number };
+// CC0 piano note: Versilian Community Sample Library (VCSL), Steinway B, no pedal, close mics, C4, velocity layer 3.
+const PIANO_COMMIT = 'c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e';
+const PIANO_URL = `https://raw.githubusercontent.com/sgossner/VCSL/${PIANO_COMMIT}/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav`;
+const PIANO_SHA256 = '238d6f0ed77d5696997e8be45e8d157389868cbd7396a59ad272c315fc464e5b';
+
+type Melodic = {
+  name: string;
+  root: number;
+  duration: number;
+  /** FM preset, our own bass synths, or the CC0 recording. */
+  src: { fm: string; noteOff: number } | { synth: 'finger' | '808' } | { piano: true; tail: number };
+  /** Measure f0 from this time (s) and resample to the nearest semitone when off by more than 5 cents. */
+  pitchFrom?: number;
+};
 const MELODIC: Melodic[] = [
-  { name: 'Round Bass', preset: 'Round Bass', root: 48, noteOff: 1.0, duration: 1.6 },
-  { name: 'Glass Keys', preset: 'Glass Keys', root: 60, noteOff: 1.4, duration: 2.2 },
-  { name: 'Electric Piano', preset: 'Electric Piano', root: 60, noteOff: 1.4, duration: 2.3 },
-  { name: 'Soft Pad', preset: 'Soft Pad', root: 60, noteOff: 1.9, duration: 3.2 },
-  { name: 'Brass', preset: 'Brass', root: 60, noteOff: 1.2, duration: 1.9 },
-  { name: 'Pluck Lead', preset: 'Pluck Lead', root: 60, noteOff: 0.8, duration: 1.4 },
-  { name: 'Bell', preset: 'Bell', root: 72, noteOff: 2.0, duration: 3.4 },
-  { name: 'Marimba', preset: 'Marimba', root: 60, noteOff: 0.7, duration: 1.4 },
+  { name: 'Piano', root: 60, duration: 4.2, src: { piano: true, tail: 1.2 }, pitchFrom: 0.25 },
+  { name: 'Finger Bass', root: 36, duration: 2.6, src: { synth: 'finger' }, pitchFrom: 0.3 },
+  { name: '808 Sub', root: 33, duration: 2.4, src: { synth: '808' }, pitchFrom: 0.35 },
+  { name: 'Electric Piano', root: 60, duration: 2.3, src: { fm: 'Electric Piano', noteOff: 1.4 }, pitchFrom: 0.3 },
+  { name: 'Soft Pad', root: 60, duration: 3.2, src: { fm: 'Soft Pad', noteOff: 1.9 }, pitchFrom: 0.8 },
+  { name: 'Pluck Lead', root: 60, duration: 1.4, src: { fm: 'Pluck Lead', noteOff: 0.8 }, pitchFrom: 0.15 },
+  { name: 'Bell', root: 72, duration: 3.4, src: { fm: 'Bell', noteOff: 2.0 } },
+  { name: 'Marimba', root: 60, duration: 1.4, src: { fm: 'Marimba', noteOff: 0.7 }, pitchFrom: 0.1 },
 ];
 
-function renderMelodic(m: Melodic): Float32Array {
-  const params = new FmParams();
-  params.set(presetByName(m.preset));
-  const voice = new FmVoice(SR);
-  const n = Math.round(m.duration * SR);
-  const note = new Float32Array(n);
-  voice.noteOn(params, m.root, 110, 1, false, 0);
-  const offAt = Math.round(m.noteOff * SR);
-  const BLOCK = 128;
-  for (let i = 0; i < n; i += BLOCK) {
-    if (i <= offAt && offAt < i + BLOCK) voice.noteOff(params);
-    voice.render(params, note, i, Math.min(n, i + BLOCK));
-  }
-  fadeEnd(note, 0.01);
-  normalize(note);
+function fetchPiano(): Float32Array {
+  const dir = join(CACHE, 'src');
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, 'piano-c4.wav');
+  if (!existsSync(path)) execFileSync('curl', ['-sfL', '-o', path, PIANO_URL]);
+  const sum = createHash('sha256').update(readFileSync(path)).digest('hex');
+  if (sum !== PIANO_SHA256) throw new Error(`piano source checksum mismatch: ${sum}`);
+  return readWav(path); // 44.1 kHz stereo 24-bit -> mono
+}
+
+/** Cuts to the onset (-45 dB of peak, 3 ms pre-roll) and takes `seconds`, with a smooth tail. */
+function pianoNote(m: Melodic & { src: { piano: true; tail: number } }): Float32Array {
+  const raw = fetchPiano();
+  const thr = peakOf(raw) * db(-45);
+  let on = 0;
+  while (on < raw.length && Math.abs(raw[on]!) < thr) on++;
+  const from = Math.max(0, on - Math.round(0.003 * SR));
+  const note = raw.slice(from, from + Math.round(m.duration * SR));
+  fadeEnd(note, m.src.tail, true);
   return note;
+}
+
+function renderMelodic(m: Melodic): { note: Float32Array; root: number; f0?: number; cents?: number; clarity?: number; corrected: boolean } {
+  let note: Float32Array;
+  if ('fm' in m.src) {
+    const params = new FmParams();
+    params.set(presetByName(m.src.fm));
+    const voice = new FmVoice(SR);
+    const n = Math.round(m.duration * SR);
+    note = new Float32Array(n);
+    voice.noteOn(params, m.root, 110, 1, false, 0);
+    const offAt = Math.round(m.src.noteOff * SR);
+    const BLOCK = 128;
+    for (let i = 0; i < n; i += BLOCK) {
+      if (i <= offAt && offAt < i + BLOCK) voice.noteOff(params);
+      voice.render(params, note, i, Math.min(n, i + BLOCK));
+    }
+  } else if ('synth' in m.src) {
+    note = m.src.synth === 'finger' ? renderFingerBass(SR, m.root, m.duration) : renderSub808(SR, m.root, m.duration);
+  } else {
+    note = pianoNote(m as Melodic & { src: { piano: true; tail: number } });
+  }
+
+  let rootOut = m.root;
+  let corrected = false;
+  let f0: number | undefined;
+  let cents: number | undefined;
+  let clarity: number | undefined;
+  if (m.pitchFrom !== undefined) {
+    const expected = 440 * 2 ** ((m.root - 69) / 12);
+    const p = measureF0(note, SR, expected, m.pitchFrom);
+    f0 = p.hz;
+    clarity = p.clarity;
+    if (p.clarity > 0.8 && p.hz > 0) {
+      // Nearest semitone to what we measured, then resample so the note sits exactly on it.
+      const nearest = Math.round(69 + 12 * Math.log2(p.hz / 440));
+      const target = 440 * 2 ** ((nearest - 69) / 12);
+      cents = centsBetween(p.hz, target);
+      if (Math.abs(cents) > 5) {
+        note = resample(note, target / p.hz);
+        corrected = true;
+        cents = centsBetween(measureF0(note, SR, target, m.pitchFrom * 0.9).hz, target);
+      }
+      rootOut = nearest;
+    }
+  }
+  const fade = 'piano' in m.src ? 0.02 : 0.01;
+  fadeEnd(note, fade);
+  normalize(note);
+  return { note, root: rootOut, f0, cents, clarity, corrected };
 }
 
 // ---------------------------------------------------------------- synth drum kits
@@ -362,11 +432,14 @@ test('render factory sounds', () => {
   const sources: Float32Array[] = [];
 
   MELODIC.forEach((m, i) => {
-    const note = renderMelodic(m);
+    const r = renderMelodic(m);
+    const note = r.note;
+    const pitchLine = r.f0 ? `f0 ${r.f0.toFixed(2)} Hz (clarity ${r.clarity!.toFixed(2)}), root ${r.root}, ${r.cents !== undefined ? `${r.cents.toFixed(1)} cents` : 'n/a'}${r.corrected ? ' (resampled)' : ''}` : `root ${r.root}, pitch not measured`;
+    console.log(`melodic ${i + 1} ${m.name}: ${pitchLine}`);
     const data = new Float32Array(Math.round(LEAD_IN * SR) + note.length);
     data.set(note, Math.round(LEAD_IN * SR));
     sources.push(data);
-    slots.push({ slot: i, name: m.name, kind: 'melodic', file: `${String(i + 1).padStart(2, '0')}-${slug(m.name)}.mp3`, root: m.root, start: LEAD_IN, duration: r4(note.length / SR) });
+    slots.push({ slot: i, name: m.name, kind: 'melodic', file: `${String(i + 1).padStart(2, '0')}-${slug(m.name)}.mp3`, root: r.root, start: LEAD_IN, duration: r4(note.length / SR) });
   });
 
   const drumSets: { name: string; hits: { name: string; data: Float32Array }[] }[] = [
@@ -408,7 +481,7 @@ test('render factory sounds', () => {
     if (silent) throw new Error(`${s.file}: silent hit`);
   });
 
-  writeFileSync(join(OUT, 'factory.json'), JSON.stringify({ version: 1, sampleRate: SR, slots }, null, 2) + '\n');
+  writeFileSync(join(OUT, 'factory.json'), JSON.stringify({ version: 2, sampleRate: SR, slots }, null, 2) + '\n');
   console.log(`total ${(total / 1024).toFixed(0)} kB in ${slots.length} files`);
   if (!existsSync(join(OUT, 'factory.json')) || total > 2 * 1024 * 1024) throw new Error('size budget exceeded');
 }, 300_000);

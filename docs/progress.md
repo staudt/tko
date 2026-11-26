@@ -65,3 +65,13 @@
 - Tests: new/rewritten e2e in ui, seq, notes, sample specs (tab select, key/scale knobs, chain via tab, copy/paste/clear popover, FX tab incl. multi-touch, 360x640 layout in each mode). Screenshots: `docs/screenshots/mode-{sound,pattern,pattern-popover,fx}-390x844.png`.
 
 **Try on the phone:** long-press timing (450 ms) vs. tap on pads, popover reach on edge pads, pattern density bars legibility, key/scale knob detent feel, multi-finger FX in the tab, hint line truncation on narrow phones.
+
+## UI polish batch (2026-11-25)
+- Pad grid: the left "melodic"/"drum" bracket column is gone; pads use the freed width.
+- Tempo pill: muted chevrons at both edges (amber while dragging); the number nudges left/right twice on the first 3 launches (`tko.tempoHint` in localStorage; no animation under prefers-reduced-motion).
+- Settings: metronome toggles removed (rec auto-metronome stays on by default, BPM tap still toggles "always"). About adds "Made by Ricardo Staudt" and "Built with Claude Code" links. New destructive "Reset to defaults" (two taps within 4 s; `src/ui/resetAll.ts`: stops playback, deletes user samples, default project + factory meta, resets UI state and `tko.lastKey`, keeps latency; LCD FRESH START).
+- Sound tab: knob B label is just "SCALE"; the centre title shows "C · MINOR PENTATONIC".
+- REC hold: pads play normally; while playing, hits are recorded like an armed take (`recHold` signal in state.ts, `recording()` in recorder.ts); metronome follows. Releasing after a hold does not toggle arm.
+- Tests updated/added in rec, notes, seq, ui specs. Screenshots: main-390x844.png, settings-390x844.png.
+
+**Try on the phone:** nudge animation noticeability, chevron size, REC-hold recording feel (quantize vs. what you hear), metronome blip when tapping REC while playing.
