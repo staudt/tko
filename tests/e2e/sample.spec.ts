@@ -329,4 +329,23 @@ test.describe('sampling', () => {
     expect(m.hx).toBeLessThanOrEqual(m.w);
     expect(m.sx).toBeLessThanOrEqual(m.cx);
   });
+
+  for (const [w, h] of [[390, 844], [430, 932]] as const) {
+    for (const [kind, n] of [['drum', 10], ['melodic', 1]] as const) {
+      test(`compact sheet has no internal scroll (${kind} ${w}x${h})`, async ({ page }) => {
+        await page.setViewportSize({ width: w, height: h });
+        await startEngine(page);
+        await selectSound(page, n);
+        const t = await Touch.open(page);
+        await openSampleSheet(page, t);
+        await page.waitForTimeout(300);
+        const m = await page.evaluate(() => {
+          const b = document.querySelector('.sheet-wrap.open .sheet-body') as HTMLElement;
+          return { scroll: b.scrollHeight, client: b.clientHeight };
+        });
+        expect(m.scroll).toBeLessThanOrEqual(m.client);
+        if (w === 390) await page.screenshot({ path: `docs/screenshots/sample-compact-${kind}-390x844.png` });
+      });
+    }
+  }
 });

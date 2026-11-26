@@ -32,6 +32,17 @@ function LevelMeter() {
   );
 }
 
+function TBtn(p: { id: string; label: string; icon: string; onClick: () => void; disabled?: boolean; cls?: string; aria?: string; fill?: boolean }) {
+  return (
+    <button class={`tbtn ${p.cls ?? ''}`} data-testid={p.id} aria-label={p.aria ?? p.label} disabled={p.disabled} onClick={p.onClick}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill={p.fill ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d={p.icon} />
+      </svg>
+      <span aria-hidden="true">{p.label}</span>
+    </button>
+  );
+}
+
 export function SampleSheet() {
   const open = sampleSheetOpen.value;
   const slot = selectedSound.value;
@@ -78,10 +89,11 @@ export function SampleSheet() {
   };
 
   return (
-    <Sheet open={open} onClose={close} label="Sample" title={`Sample · S${pad2(slot)}`}>
+    <Sheet open={open} onClose={close} label="Sample" title={null}>
       {open && s && (
         <>
           <div class="shead">
+            <span class="sbadge" data-testid="slot-badge">{`S${pad2(slot)}`}</span>
             {editing ? (
               <input
                 class="nameinp"
@@ -96,9 +108,9 @@ export function SampleSheet() {
                 }}
               />
             ) : (
-              <button class="sname" data-testid="sample-name" onClick={() => setEditing(true)}>
-                {s.name}
-                <small>rename</small>
+              <button class="sname" data-testid="sample-name" aria-label={`Rename ${s.name}`} onClick={() => setEditing(true)}>
+                <span class="nm">{s.name}</span>
+                <small aria-hidden="true">✎</small>
               </button>
             )}
             <div class="seg2" role="group" aria-label="Kind">
@@ -117,59 +129,46 @@ export function SampleSheet() {
               data-testid="play-btn"
               data-playing={String(isPlaying)}
               data-previews={pv.n}
+              aria-label={isPlaying ? 'Stop' : 'Play'}
               disabled={!has}
               onClick={() => (isPlaying ? stopPreview() : sid && void previewSample(sid, drum ? 0 : s.start, drum ? 1 : s.end))}
             >
-              {isPlaying ? 'Stop' : 'Play'}
+              <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                {isPlaying ? <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /> : <path d="M8 5.5v13l11-6.5z" fill="currentColor" />}
+              </svg>
             </button>
             <div class="pinfo" data-testid="sample-info">
               <span data-testid="sample-len">{has && lenS > 0 ? `${lenS.toFixed(1)} s` : has ? '…' : 'empty'}</span>
               {!drum && has && lenS > 0 && (
-                <span data-testid="trim-info">{`trim ${(s.start * lenS).toFixed(2)}–${(s.end * lenS).toFixed(2)} s · ${((s.end - s.start) * lenS).toFixed(2)} s`}</span>
+                <span class="trim" data-testid="trim-info">{`trim ${(s.start * lenS).toFixed(2)}–${(s.end * lenS).toFixed(2)} s · ${((s.end - s.start) * lenS).toFixed(2)} s`}</span>
               )}
             </div>
+            {drum && (
+              <div class="stepper" data-testid="slice-stepper">
+                <button class="wide" data-testid="slices-minus" aria-label="Fewer slices" disabled={!has || nSlices <= 1} onClick={() => void sliceCurrent(slot, { equal: nSlices - 1 })}>
+                  −
+                </button>
+                <span class="cnt" data-testid="slice-count">{`${nSlices} slice${nSlices === 1 ? '' : 's'}`}</span>
+                <button class="wide" data-testid="slices-plus" aria-label="More slices" disabled={!has || nSlices >= 16} onClick={() => void sliceCurrent(slot, { equal: nSlices + 1 })}>
+                  +
+                </button>
+              </div>
+            )}
           </div>
           <Waveform slot={slot} />
-          <p class="hint">{!has ? 'Empty. Record or import below.' : drum ? 'Tap a slice to hear it · drag markers · hold a marker to remove · double-tap to add' : 'Drag the handles to trim. Tap the wave to hear it from there.'}</p>
+          <p class="hint">{!has ? 'Empty. Record or import below.' : drum ? 'tap hear · drag move · hold remove · 2×tap add' : 'drag handles to trim · tap to hear'}</p>
 
-          {drum && (
-            <div class="stepper" data-testid="slice-stepper">
-              <span class="lab">Slices</span>
-              <button class="wide" data-testid="slices-minus" aria-label="Fewer slices" disabled={!has || nSlices <= 1} onClick={() => void sliceCurrent(slot, { equal: nSlices - 1 })}>
-                −
-              </button>
-              <span class="cnt" data-testid="slice-count">{`${nSlices} slice${nSlices === 1 ? '' : 's'}`}</span>
-              <button class="wide" data-testid="slices-plus" aria-label="More slices" disabled={!has || nSlices >= 16} onClick={() => void sliceCurrent(slot, { equal: nSlices + 1 })}>
-                +
-              </button>
-            </div>
-          )}
           <div class="tools">
             {drum && (
-              <>
-                <button class="wide" data-testid="auto-slice" disabled={!has} onClick={() => void sliceCurrent(slot, 'auto')}>
-                  Auto-slice
-                </button>
-              </>
+              <TBtn id="auto-slice" label="Auto-slice" icon="M4 5v14M10 5v14M16 5v14M21 5v14" disabled={!has} onClick={() => void sliceCurrent(slot, 'auto')} />
             )}
-            <button class="wide" data-testid="reverse" disabled={!has} onClick={() => void reverseSlot(slot)}>
-              Reverse
-            </button>
-            {!drum && (
-              <button class="wide" data-testid="crop" disabled={!has || !cropped} onClick={() => void cropSlot(slot)}>
-                Crop to trim
-              </button>
-            )}
+            <TBtn id="reverse" label="Reverse" icon="M9 7L4 12l5 5M4 12h16" disabled={!has} onClick={() => void reverseSlot(slot)} />
+            {!drum && <TBtn id="crop" label="Crop" icon="M7 3v14h14M3 7h14v14" disabled={!has || !cropped} onClick={() => void cropSlot(slot)} />}
           </div>
 
-          <div class="setsec">Sources</div>
           <div class="tools">
-            <button class={`wide recbtn${recHere ? ' on' : ''}`} data-testid="sample-record" disabled={full && !recHere} onClick={() => (recHere ? void endRecord() : void beginRecord(slot))}>
-              {recHere ? 'Stop' : 'Record'}
-            </button>
-            <button class="wide" data-testid="import-btn" disabled={recHere || full} onClick={() => file.current?.click()}>
-              Import file
-            </button>
+            <TBtn cls={`recbtn${recHere ? ' on' : ''}`} id="sample-record" label={recHere ? 'Stop' : 'Record'} icon={recHere ? 'M7 7h10v10H7z' : 'M12 6a6 6 0 100 12 6 6 0 000-12z'} fill disabled={full && !recHere} onClick={() => (recHere ? void endRecord() : void beginRecord(slot))} />
+            <TBtn id="import-btn" label="Import" icon="M12 4v12M7 11l5 5 5-5M5 20h14" disabled={recHere || full} onClick={() => file.current?.click()} />
             <input
               ref={file}
               class="filein"
@@ -184,17 +183,10 @@ export function SampleSheet() {
                 if (f) void importFile(slot, f);
               }}
             />
+            <TBtn id="restore-factory" label="Factory" aria="Restore factory" icon="M4 12a8 8 0 108-8M4 4v5h5" onClick={() => void restoreFactory(slot)} />
+            <TBtn cls={`danger${confirm ? ' armed' : ''}`} id="clear-slot" label={confirm ? 'Confirm' : 'Clear'} aria={confirm ? 'Tap to confirm' : 'Clear slot'} icon="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" disabled={!has} onClick={() => (confirm ? (clearSlot(slot), setConfirm(null)) : setConfirm('clear'))} />
           </div>
           {recHere && <LevelMeter />}
-
-          <div class="tools">
-            <button class="wide" data-testid="restore-factory" onClick={() => void restoreFactory(slot)}>
-              Restore factory
-            </button>
-            <button class={`wide danger${confirm ? ' armed' : ''}`} data-testid="clear-slot" disabled={!has} onClick={() => (confirm ? (clearSlot(slot), setConfirm(null)) : setConfirm('clear'))}>
-              {confirm ? 'Tap to confirm' : 'Clear slot'}
-            </button>
-          </div>
 
           <div class="gauge" data-testid="gauge">
             <div class="lvl-bar">

@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 
 /** Bottom sheet shell: backdrop tap or a downward drag on the header closes it; the body scrolls. */
-export function Sheet(p: { open: boolean; onClose: () => void; label: string; title?: ComponentChildren; children: ComponentChildren }) {
+export function Sheet(p: { open: boolean; onClose: () => void; label: string; title?: ComponentChildren | null; children: ComponentChildren }) {
   const panel = useRef<HTMLDivElement>(null);
   const st = useRef<{ y: number; dy: number; id: number } | null>(null);
   const reset = () => {
@@ -37,7 +37,7 @@ export function Sheet(p: { open: boolean; onClose: () => void; label: string; ti
           onPointerCancel={reset}
         >
           <div class="grab" />
-          <h2>{p.title ?? p.label}</h2>
+          {p.title !== null && <h2>{p.title ?? p.label}</h2>}
         </div>
         <div class="sheet-body">{p.children}</div>
       </div>
